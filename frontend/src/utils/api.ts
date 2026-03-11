@@ -11,13 +11,26 @@ export const api = {
     async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const token = localStorage.getItem('token');
 
-        const headers: Record<string, string> = {
-            ...(options.headers as Record<string, string>),
-        };
+        const headers: Record<string, string> = {};
+
+        // Merge headers from options
+        if (options.headers) {
+            if (options.headers instanceof Headers) {
+                options.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+            } else if (Array.isArray(options.headers)) {
+                options.headers.forEach(([key, value]) => {
+                    headers[key] = value;
+                });
+            } else {
+                Object.assign(headers, options.headers);
+            }
+        }
 
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
-            headers['x-auth-token'] = token; // Compatibility with legacy header if needed
+            headers['x-auth-token'] = token;
         }
 
         const response = await fetch(`${API_URL}${endpoint}`, {
@@ -39,19 +52,29 @@ export const api = {
     },
 
     post<T = any>(endpoint: string, body: any, options: RequestInit = {}) {
+        const headers: Record<string, string> = {};
+        if (!(body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+        }
+
         return this.request<T>(endpoint, {
             ...options,
             method: 'POST',
-            headers: body instanceof FormData ? {} : { 'Content-Type': 'application/json', ...options.headers },
+            headers: { ...headers, ...(options.headers as any) },
             body: body instanceof FormData ? body : JSON.stringify(body),
         });
     },
 
     patch<T = any>(endpoint: string, body: any, options: RequestInit = {}) {
+        const headers: Record<string, string> = {};
+        if (!(body instanceof FormData)) {
+            headers['Content-Type'] = 'application/json';
+        }
+
         return this.request<T>(endpoint, {
             ...options,
             method: 'PATCH',
-            headers: body instanceof FormData ? {} : { 'Content-Type': 'application/json', ...options.headers },
+            headers: { ...headers, ...(options.headers as any) },
             body: body instanceof FormData ? body : JSON.stringify(body),
         });
     }
