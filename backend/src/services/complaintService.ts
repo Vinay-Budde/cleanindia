@@ -23,6 +23,19 @@ export class ComplaintService {
 
         const { score, label } = this.calculatePriority(severity, trafficLevel, populationDensity);
 
+        // Check for duplicate complaint
+        const existingComplaint = await Complaint.findOne({
+            category,
+            location,
+            status: { $ne: 'resolved' }
+        });
+
+        if (existingComplaint) {
+            const error: any = new Error('The complaint has already been raised. Try raising another different complaint');
+            error.statusCode = 409;
+            throw error;
+        }
+
         let imageUrl = data.imageUrl || null;
         if (file) {
             imageUrl = await uploadToCloudinary(file, 'complaints');

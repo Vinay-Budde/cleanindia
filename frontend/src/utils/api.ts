@@ -27,30 +27,41 @@ export const api = {
             headers['x-auth-token'] = token;
         }
 
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            ...options,
-            headers,
-        });
+        const url = `${API_URL}${endpoint}`;
+        console.log(`[API] Fetching: ${url}`);
 
-        let result: any;
-        const contentType = response.headers.get('content-type');
-        
         try {
-            if (contentType && contentType.includes('application/json')) {
-                result = await response.json();
-            } else {
-                result = { message: await response.text() };
+            const response = await fetch(url, {
+                ...options,
+                headers,
+            });
+
+            let result: any;
+            const contentType = response.headers.get('content-type');
+            
+            try {
+                if (contentType && contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    result = { message: await response.text() };
+                }
+            } catch (e) {
+                result = { message: 'Failed to parse server response' };
             }
-        } catch (e) {
-            result = { message: 'Failed to parse server response' };
-        }
 
-        if (!response.ok) {
-            const errorMessage = result?.message || result?.error || `Error: ${response.status} ${response.statusText}`;
-            throw new Error(errorMessage);
-        }
+            if (!response.ok) {
+                const errorMessage = result?.message || result?.error || `Error: ${response.status} ${response.statusText}`;
+                throw new Error(errorMessage);
+            }
 
-        return result.data;
+            return result.data;
+        } catch (error: any) {
+            console.error(`[API] Error on ${url}:`, error);
+            if (error.message === 'Failed to fetch') {
+                throw new Error(`Connectivity Error: Could not connect to the server at ${API_URL}. Please ensure the backend is running.`);
+            }
+            throw error;
+        }
     },
 
     get<T = any>(endpoint: string, options: RequestInit = {}) {

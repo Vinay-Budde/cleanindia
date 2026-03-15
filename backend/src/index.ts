@@ -1,7 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -11,8 +13,6 @@ import complaintRoutes from './routes/complaints';
 import authRoutes from './routes/auth';
 import notificationRoutes from './routes/notifications';
 import { errorHandler } from './middleware/error';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { ApiResponse } from '../utils/ApiResponse';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development';
 
 export const authenticate = (req: any, res: Response, next: NextFunction) => {
+    const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development';
     const token = req.header('x-auth-token') || req.header('Authorization')?.replace('Bearer ', '');
 
     if (!token) {

@@ -45,7 +45,7 @@ const Layout = ({ children, type = 'citizen' }: LayoutProps) => {
         
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/notifications?recipient=${userEmail}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/notifications`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'x-auth-token': token || ''
@@ -87,10 +87,14 @@ const Layout = ({ children, type = 'citizen' }: LayoutProps) => {
         setIsNotifOpen(!isNotifOpen);
         if (!isNotifOpen && unreadCount > 0) {
             try {
+                const token = localStorage.getItem('token');
                 await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/notifications/read`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ role: userRole, identifier: userEmail })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'x-auth-token': token || ''
+                    }
                 });
                 setNotifications(notifications.map(n => ({ ...n, read: true })));
             } catch (error) {

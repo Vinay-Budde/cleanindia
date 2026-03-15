@@ -11,6 +11,10 @@ router.use(authenticate);
 // @desc    Get user notifications
 router.get('/', notificationController.getNotifications);
 
+// @route   PATCH /api/notifications/read
+// @desc    Mark all notifications as read
+router.patch('/read', notificationController.markAllRead);
+
 // @route   PATCH /api/notifications/:id/read
 // @desc    Mark a notification as read
 router.patch('/:id/read', notificationController.markAsRead);

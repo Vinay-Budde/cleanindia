@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development';
 
 export class AuthService {
     static async register(userData: any) {
@@ -53,10 +52,12 @@ export class AuthService {
         const payload = {
             user: {
                 id: user.id,
+                email: user.email,
                 role: user.role
             }
         };
 
+        const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development';
         const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '5h' });
 
         return {
