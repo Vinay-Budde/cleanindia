@@ -16,6 +16,7 @@
   "dependencies": {
     "@types/express-rate-limit": "^6.0.2",
     "@types/morgan": "^1.9.10",
+    "@types/nodemailer": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
@@ -28,6 +29,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "nodemailer": "^8.0.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -7,6 +7,11 @@ export interface IUser extends Document {
     passwordHash: string;
     role: 'citizen' | 'admin' | 'worker';
     createdAt: Date;
+    isVerified: boolean;
+    otpCode?: string;
+    otpExpires?: Date;
+    resetPasswordToken?: string;
+    resetPasswordExpires?: Date;
 }
 
 const userSchema = new Schema<IUser>({
@@ -16,6 +21,11 @@ const userSchema = new Schema<IUser>({
     passwordHash: { type: String, required: true },
     role: { type: String, required: true, enum: ['citizen', 'admin', 'worker'], default: 'citizen' },
     createdAt: { type: Date, default: Date.now },
+    isVerified: { type: Boolean, default: false },
+    otpCode: { type: String },
+    otpExpires: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
 });
 
 export const User = mongoose.model<IUser>('User', userSchema);

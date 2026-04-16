@@ -38,7 +38,10 @@ const limiter = (0, express_rate_limit_1.default)({
 });
 app.use('/api/', limiter);
 // Connect to MongoDB
-mongoose_1.default.connect(process.env.MONGO_URI)
+mongoose_1.default.connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+})
     .then(() => console.log('Connected to MongoDB'))
     .catch((err) => console.error('MongoDB connection error:', err));
 // Routes

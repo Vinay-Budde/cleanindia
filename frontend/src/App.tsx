@@ -10,10 +10,13 @@ import AdminDashboard from './pages/AdminDashboard';
 import ManageComplaints from './pages/ManageComplaints';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Layout from './components/Layout';
 import { Toaster } from 'react-hot-toast';
 
 import ProtectedRoute from './components/ProtectedRoute';
+
 
 function App() {
   return (
@@ -32,6 +35,8 @@ function App() {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
   );

@@ -117,7 +117,16 @@ const Login = () => {
                                 autoComplete="new-password"
                             />
                         </div>
+                        <div className="flex justify-end mt-1.5">
+                            <Link
+                                to="/forgot-password"
+                                className="text-xs text-[#115e59] font-medium hover:underline"
+                            >
+                                Forgot Password?
+                            </Link>
+                        </div>
                     </div>
+
 
                     <button
                         type="submit"
