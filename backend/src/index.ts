@@ -45,15 +45,30 @@ app.use('/api/notifications', notificationRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {
-    const mongoUri = process.env.MONGO_URI;
+    let mongoUri = process.env.MONGO_URI;
 
-    console.log('--- Environment Check ---');
+    console.log('--- Environment Debug Check ---');
     console.log('PORT:', process.env.PORT || 5000);
-    console.log('MONGO_URI defined:', !!mongoUri);
-    if (!mongoUri) {
-        console.error('CRITICAL: MONGO_URI is undefined. Check your .env file or Render environment variables.');
+    console.log('MONGO_URI exists:', !!mongoUri);
+
+    if (mongoUri) {
+        const hasQuotes = mongoUri.startsWith('"') || mongoUri.endsWith('"') || mongoUri.startsWith("'") || mongoUri.endsWith("'");
+        const hasSpaces = mongoUri.trim() !== mongoUri;
+        const masked = mongoUri.substring(0, 15) + "..." + mongoUri.substring(mongoUri.length - 10);
+        
+        console.log('Is MONGO_URI string?:', typeof mongoUri === 'string');
+        console.log('Contains Quotes:', hasQuotes);
+        console.log('Contains Spaces:', hasSpaces);
+        console.log('Masked URI:', masked);
+        
+        if (hasQuotes || hasSpaces) {
+            console.warn('⚠️ WARNING: Your MONGO_URI environment variable on Render has quotes or extra spaces. Please remove them in the Render Dashboard.');
+            mongoUri = mongoUri.replace(/['"]/g, '').trim();
+        }
+    } else {
+        console.error('CRITICAL: MONGO_URI is undefined. Check Render environment variables.');
     }
-    console.log('-------------------------');
+    console.log('-------------------------------');
 
     try {
         if (!mongoUri) throw new Error('MONGO_URI is not defined in environment variables');
@@ -69,7 +84,6 @@ const connectDB = async () => {
         });
     } catch (err: any) {
         console.error('❌ MongoDB connection error:', err.message);
-        console.error('Full connection error details:', err);
         process.exit(1);
     }
 };
