@@ -39,9 +39,16 @@ export class AuthService {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        // Only allow 'citizen' on public registration
-        const allowedPublicRoles = ['citizen'];
-        const assignedRole = allowedPublicRoles.includes(role) ? role : 'citizen';
+        // Assign roles, but check if they match the designated admin email
+        const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@cleanindia.gov.in';
+        let assignedRole: 'citizen' | 'admin' | 'worker' = 'citizen';
+
+        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+            assignedRole = 'admin';
+        } else {
+            const allowedPublicRoles = ['citizen'];
+            assignedRole = allowedPublicRoles.includes(role) ? role : 'citizen';
+        }
 
         // Generate OTP
         const rawOtp = generateOtp();
