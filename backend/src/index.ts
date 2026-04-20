@@ -45,18 +45,31 @@ app.use('/api/notifications', notificationRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {
+    const mongoUri = process.env.MONGO_URI;
+
+    console.log('--- Environment Check ---');
+    console.log('PORT:', process.env.PORT || 5000);
+    console.log('MONGO_URI defined:', !!mongoUri);
+    if (!mongoUri) {
+        console.error('CRITICAL: MONGO_URI is undefined. Check your .env file or Render environment variables.');
+    }
+    console.log('-------------------------');
+
     try {
-        await mongoose.connect(process.env.MONGO_URI as string, {
+        if (!mongoUri) throw new Error('MONGO_URI is not defined in environment variables');
+
+        await mongoose.connect(mongoUri, {
             serverSelectionTimeoutMS: 15000,
             socketTimeoutMS: 45000,
         });
-        console.log('Connected to MongoDB');
+        console.log('✅ Connected to MongoDB');
 
         app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
+            console.log(`🚀 Server is running on port ${PORT}`);
         });
-    } catch (err) {
-        console.error('MongoDB connection error:', err);
+    } catch (err: any) {
+        console.error('❌ MongoDB connection error:', err.message);
+        console.error('Full connection error details:', err);
         process.exit(1);
     }
 };
