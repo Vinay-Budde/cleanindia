@@ -38,19 +38,30 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI as string, {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-})
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
-
-
 // Routes
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// Connect to MongoDB & Start Server
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI as string, {
+            serverSelectionTimeoutMS: 15000,
+            socketTimeoutMS: 45000,
+        });
+        console.log('Connected to MongoDB');
+
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+        process.exit(1);
+    }
+};
+
+connectDB();
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -61,7 +72,3 @@ app.get('/', (req, res) => {
 
 // Global Error Handler
 app.use(errorHandler);
-
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});

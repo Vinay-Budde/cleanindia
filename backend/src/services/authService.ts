@@ -80,8 +80,10 @@ export class AuthService {
             await user.save();
         }
 
-        // Send OTP email
-        await sendOtpEmail(email, rawOtp, name);
+        // Send OTP email (non-blocking for faster response)
+        sendOtpEmail(email, rawOtp, name).catch(err => {
+            console.error(`Failed to send OTP email to ${email}:`, err);
+        });
 
         return { requiresVerification: true, message: 'OTP sent to your email. Please verify to complete registration.' };
     }
@@ -138,7 +140,9 @@ export class AuthService {
         user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        await sendOtpEmail(email, rawOtp, user.name);
+        sendOtpEmail(email, rawOtp, user.name).catch(err => {
+            console.error(`Failed to resend OTP email to ${email}:`, err);
+        });
         return { message: 'A new OTP has been sent to your email.' };
     }
 
@@ -194,7 +198,9 @@ export class AuthService {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-        await sendPasswordResetEmail(user.email, resetUrl, user.name);
+        sendPasswordResetEmail(user.email, resetUrl, user.name).catch(err => {
+            console.error(`Failed to send password reset email to ${user.email}:`, err);
+        });
 
         return { message: 'If a matching account is found, a reset link has been sent.' };
     }
