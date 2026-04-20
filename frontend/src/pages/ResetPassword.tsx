@@ -12,15 +12,8 @@ const ResetPassword = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [errorMessage, setErrorMessage] = useState('');
-
-    useEffect(() => {
-        if (!token) {
-            setStatus('error');
-            setErrorMessage('No reset token found. Please request a new password reset link.');
-        }
-    }, [token]);
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(!token ? 'error' : 'idle');
+    const [errorMessage, setErrorMessage] = useState(!token ? 'No reset token found. Please request a new password reset link.' : '');
 
     const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
     const passwordTooShort = newPassword.length > 0 && newPassword.length < 8;
