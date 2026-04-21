@@ -9,6 +9,9 @@ const createTransporter = () => {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
         },
+        tls: {
+            rejectUnauthorized: false,
+        },
     });
 };
 
@@ -72,7 +75,7 @@ export const sendOtpEmail = async (to: string, otp: string, userName: string): P
     `;
 
     await transporter.sendMail({
-        from: `"Clean India" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔐 Your Clean India Verification Code',
         html,
@@ -143,7 +146,7 @@ export const sendPasswordResetEmail = async (to: string, resetUrl: string, userN
     `;
 
     await transporter.sendMail({
-        from: `"Clean India" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+        from: `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔑 Reset Your Clean India Password',
         html,

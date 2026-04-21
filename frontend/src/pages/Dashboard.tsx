@@ -69,6 +69,9 @@ const Dashboard = () => {
         const fetchComplaints = async () => {
             setIsLoading(true);
             try {
+                // Backend filters automatically by role:
+                // - Citizens receive only their own complaints
+                // - Admins receive all complaints
                 const data = await api.get<ComplaintData[]>('/api/complaints');
                 setComplaints(data);
 
@@ -111,6 +114,7 @@ const Dashboard = () => {
 
         fetchComplaints();
     }, []);
+
 
     // Color mappings for UI highlights
     const priorityColor = (priority: string) => {

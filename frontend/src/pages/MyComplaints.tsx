@@ -43,18 +43,9 @@ const MyComplaints = () => {
     useEffect(() => {
         const fetchComplaints = async () => {
             try {
-                const userEmail = localStorage.getItem('userEmail');
-                const userName = localStorage.getItem('userName');
-                let queryParam = '';
-                if (userEmail && userName) {
-                    queryParam = `?reportedBy=${encodeURIComponent(userEmail)}&reportedByName=${encodeURIComponent(userName)}`;
-                } else if (userEmail) {
-                    queryParam = `?reportedBy=${encodeURIComponent(userEmail)}`;
-                } else if (userName) {
-                    queryParam = `?reportedByName=${encodeURIComponent(userName)}`;
-                }
-
-                const data = await api.get<ComplaintData[]>(`/api/complaints${queryParam}`);
+                // Backend filters by role automatically via JWT:
+                // citizens receive only their own complaints
+                const data = await api.get<ComplaintData[]>('/api/complaints');
                 setComplaints(data);
             } catch (error: any) {
                 console.error('Failed to fetch complaints:', error);

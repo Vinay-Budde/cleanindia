@@ -85,19 +85,26 @@ export class ComplaintService {
         return savedComplaint;
     }
 
-    static async getAllComplaints(filters: any) {
-        const { reportedBy, reportedByName, assignedTo } = filters;
+    static async getAllComplaints(filters: any, user?: { email: string; role: string }) {
         let query: any = {};
 
-        if (reportedBy || reportedByName) {
-            const orConditions = [];
-            if (reportedBy) orConditions.push({ reportedBy: String(reportedBy) });
-            if (reportedByName) orConditions.push({ reportedBy: String(reportedByName) });
-            query.$or = orConditions;
-        }
+        if (user && user.role !== 'admin') {
+            // Citizens and workers only see complaints they reported
+            query.reportedBy = user.email;
+        } else {
+            // Admins: apply any explicit filters passed via query string
+            const { reportedBy, reportedByName, assignedTo } = filters;
 
-        if (assignedTo) {
-            query.assignedTo = assignedTo;
+            if (reportedBy || reportedByName) {
+                const orConditions = [];
+                if (reportedBy) orConditions.push({ reportedBy: String(reportedBy) });
+                if (reportedByName) orConditions.push({ reportedBy: String(reportedByName) });
+                query.$or = orConditions;
+            }
+
+            if (assignedTo) {
+                query.assignedTo = assignedTo;
+            }
         }
 
         return await Complaint.find(query).sort({ reportedAt: -1 });

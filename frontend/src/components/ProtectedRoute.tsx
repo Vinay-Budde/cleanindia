@@ -10,17 +10,21 @@ const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
     const userRole = localStorage.getItem('userRole');
     const location = useLocation();
 
+    // Not authenticated — send to login
     if (!token) {
-        // Redirect them to the /login page, but save the current location they were
-        // trying to go to when they were redirected.
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
+    // Route requires a specific role and user doesn't have it
     if (role && userRole !== role) {
-        // If the user's role doesn't match the required role, redirect to appropriate dashboard
         if (userRole === 'admin') return <Navigate to="/admin/dashboard" replace />;
         if (userRole === 'worker') return <Navigate to="/worker/dashboard" replace />;
         return <Navigate to="/dashboard" replace />;
+    }
+
+    // Route is citizen-only (no role prop) but user is admin — redirect them to admin area
+    if (!role && userRole === 'admin') {
+        return <Navigate to="/admin/dashboard" replace />;
     }
 
     return <>{children}</>;

@@ -8,7 +8,7 @@ import { authenticate, authorize } from '../middleware/auth';
 const router = Router();
 
 // @route   POST /api/complaints
-// @desc    Create a new complaint
+// @desc    Create a new complaint (citizen & admin). reportedBy is taken from JWT.
 router.post(
     '/',
     authenticate,
@@ -19,7 +19,7 @@ router.post(
 );
 
 // @route   GET /api/complaints
-// @desc    Get all complaints
+// @desc    Get complaints (admins see all; citizens see only their own)
 router.get('/', authenticate, complaintController.getComplaints);
 
 // @route   PATCH /api/complaints/:id/status
@@ -34,7 +34,7 @@ router.patch(
 );
 
 // @route   PATCH /api/complaints/:id/assign
-// @desc    Assign a complaint to a worker/dept
+// @desc    Assign a complaint to a worker/dept (admin only)
 router.patch(
     '/:id/assign',
     authenticate,

@@ -140,10 +140,17 @@ const Login = () => {
                 </form>
 
                 <p className="text-center text-xs text-gray-500 mt-6">
-                    Don't have an account?{' '}
-                    <Link to="/signup" state={location.state} className="text-[#115e59] font-medium hover:underline">
-                        Sign Up
-                    </Link>
+                    {!isAdminPath && (
+                        <>
+                            Don't have an account?{' '}
+                            <Link to="/signup" state={location.state} className="text-[#115e59] font-medium hover:underline">
+                                Sign Up
+                            </Link>
+                        </>
+                    )}
+                    {isAdminPath && (
+                        <span className="text-gray-400">Admin accounts are managed by the system.</span>
+                    )}
                 </p>
             </div>
         </div>

@@ -119,8 +119,12 @@ const Layout = ({ children, type = 'citizen' }: LayoutProps) => {
     }, []);
 
     const handleLogout = () => {
-        // Clear any local storage/session tokens here in the future
+        // Clear ALL user session data so next login starts fresh
         localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userPhone');
         navigate('/login');
     };
 

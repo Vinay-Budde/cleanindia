@@ -82,7 +82,7 @@ export class AuthService {
 
         // Send OTP email (non-blocking for faster response)
         sendOtpEmail(email, rawOtp, name).catch(err => {
-            console.error(`Failed to send OTP email to ${email}:`, err);
+            console.error(`[EMAIL ERROR] Failed to send OTP email to ${email}:`, err.message || err);
         });
 
         return { requiresVerification: true, message: 'OTP sent to your email. Please verify to complete registration.' };

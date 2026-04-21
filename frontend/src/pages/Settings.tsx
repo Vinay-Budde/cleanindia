@@ -4,6 +4,9 @@ import { Bell, Lock, Shield, Eye, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Settings = () => {
+    const userRole = localStorage.getItem('userRole') as 'citizen' | 'admin' | null;
+    const layoutType = userRole === 'admin' ? 'admin' : 'citizen';
+
     const [notifications, setNotifications] = useState({
         email: true,
         sms: false,
@@ -20,7 +23,7 @@ const Settings = () => {
     };
 
     return (
-        <Layout>
+        <Layout type={layoutType}>
             <div className="max-w-4xl mx-auto px-6 py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-[#115e59] mb-2">Account Settings</h1>
