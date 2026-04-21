@@ -84,7 +84,7 @@ export class AuthService {
         try {
             await sendOtpEmail(email, rawOtp, name);
         } catch (err: any) {
-            console.error(`[EMAIL ERROR] Failed to send OTP to ${email}:`, err.message || err);
+            console.error(`[SMTP ERROR] Registration email failed for ${email}:`, err);
             throw new Error('Failed to send OTP email. Please check your email address and try again.');
         }
 
