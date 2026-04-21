@@ -80,10 +80,13 @@ export class AuthService {
             await user.save();
         }
 
-        // Send OTP email (non-blocking for faster response)
-        sendOtpEmail(email, rawOtp, name).catch(err => {
-            console.error(`[EMAIL ERROR] Failed to send OTP email to ${email}:`, err.message || err);
-        });
+        // Send OTP email — awaited so any delivery failure surfaces as an error to the user
+        try {
+            await sendOtpEmail(email, rawOtp, name);
+        } catch (err: any) {
+            console.error(`[EMAIL ERROR] Failed to send OTP to ${email}:`, err.message || err);
+            throw new Error('Failed to send OTP email. Please check your email address and try again.');
+        }
 
         return { requiresVerification: true, message: 'OTP sent to your email. Please verify to complete registration.' };
     }
@@ -140,9 +143,14 @@ export class AuthService {
         user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        sendOtpEmail(email, rawOtp, user.name).catch(err => {
-            console.error(`Failed to resend OTP email to ${email}:`, err);
-        });
+        // Send OTP email — awaited so failures surface as real errors
+        try {
+            await sendOtpEmail(email, rawOtp, user.name);
+        } catch (err: any) {
+            console.error(`[EMAIL ERROR] Failed to resend OTP to ${email}:`, err.message || err);
+            throw new Error('Failed to send OTP email. Please try again in a moment.');
+        }
+
         return { message: 'A new OTP has been sent to your email.' };
     }
 
