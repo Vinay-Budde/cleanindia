@@ -13,7 +13,7 @@ const PASSWORD_RULES = [
 ];
 
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 60; // seconds
+const RESEND_COOLDOWN = 30; // seconds
 
 const Signup = () => {
     const navigate  = useNavigate();

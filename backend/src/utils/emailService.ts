@@ -1,19 +1,35 @@
 import nodemailer from 'nodemailer';
 
 const createTransporter = () => {
+    // Google App Passwords are shown with spaces in the UI but must be used without spaces
+    const pass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
+
     return nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
         port: Number(process.env.EMAIL_PORT) || 587,
         secure: false,
         auth: {
             user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
+            pass,
         },
         tls: {
             rejectUnauthorized: false,
         },
     });
 };
+
+// Verify SMTP connection on startup — logs errors clearly instead of silent failure
+export const verifyEmailConnection = async (): Promise<void> => {
+    try {
+        const transporter = createTransporter();
+        await transporter.verify();
+        console.log('✅ SMTP connection verified — emails ready to send');
+    } catch (err: any) {
+        console.error('❌ SMTP connection FAILED:', err.message);
+        console.error('   Check EMAIL_USER and EMAIL_PASS in your .env file');
+    }
+};
+
 
 export const sendOtpEmail = async (to: string, otp: string, userName: string): Promise<void> => {
     const transporter = createTransporter();
