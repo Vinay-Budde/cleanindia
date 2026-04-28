@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Clock, Activity, CheckCircle, AlertCircle, Timer, Users, BarChart2, MapPin, PieChart as PieChartIcon } from 'lucide-react';
+import { Clock, Activity, CheckCircle, AlertCircle, Timer, Users, BarChart2, MapPin, PieChart as PieChartIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
