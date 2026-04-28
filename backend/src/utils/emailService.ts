@@ -1,39 +1,87 @@
 import nodemailer from 'nodemailer';
 
-const createTransporter = () => {
-    // Google App Passwords are shown with spaces in the UI but must be used without spaces
+// ── Singleton transporter ─────────────────────────────────────────────────────
+// Created once on first use and reused. Avoids per-request connection overhead
+// and ensures the verify() handshake only happens once at startup.
+let _transporter: nodemailer.Transporter | null = null;
+
+const getTransporter = (): nodemailer.Transporter => {
+    if (_transporter) return _transporter;
+
+    // Google App Passwords are shown with spaces in the UI — strip them.
     const pass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
 
-    return nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: Number(process.env.EMAIL_PORT) || 587,
-        secure: false,
+    _transporter = nodemailer.createTransport({
+        host:   process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port:   Number(process.env.EMAIL_PORT) || 587,
+        secure: false,           // STARTTLS on port 587
         auth: {
             user: process.env.EMAIL_USER,
             pass,
         },
-        tls: {
-            rejectUnauthorized: false,
-        },
+        // ── Timeouts — critical for production (Render, Railway, etc.) ──────
+        connectionTimeout: 10_000,   // 10 s to establish the TCP connection
+        greetingTimeout:   10_000,   // 10 s waiting for the SMTP EHLO greeting
+        socketTimeout:     15_000,   // 15 s of inactivity before giving up
+        // ────────────────────────────────────────────────────────────────────
+        tls: { rejectUnauthorized: false },
+        pool: true,              // keep connections alive across sends
+        maxConnections: 3,
+        maxMessages: 100,
     });
+
+    return _transporter;
 };
 
-// Verify SMTP connection on startup — logs errors clearly instead of silent failure
+// ── Startup SMTP health-check ─────────────────────────────────────────────────
 export const verifyEmailConnection = async (): Promise<void> => {
     try {
-        const transporter = createTransporter();
-        await transporter.verify();
+        await getTransporter().verify();
         console.log('✅ SMTP connection verified — emails ready to send');
     } catch (err: any) {
         console.error('❌ SMTP connection FAILED:', err.message);
-        console.error('   Check EMAIL_USER and EMAIL_PASS in your .env file');
+        console.error('   Check EMAIL_USER and EMAIL_PASS in your environment variables.');
+        // Do NOT throw — a broken SMTP config shouldn't crash the server.
+        // Individual email sends will fail and surface their own errors.
+        _transporter = null;  // reset so the next request retries the connection
     }
 };
 
+// ── Send with retry ────────────────────────────────────────────────────────────
+const sendWithRetry = async (
+    mailOptions: nodemailer.SendMailOptions,
+    maxAttempts = 3,
+): Promise<void> => {
+    let lastError: any;
 
-export const sendOtpEmail = async (to: string, otp: string, userName: string): Promise<void> => {
-    const transporter = createTransporter();
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await getTransporter().sendMail(mailOptions);
+            console.log(`[EMAIL] ✅ Sent to ${mailOptions.to} (attempt ${attempt})`);
+            return;
+        } catch (err: any) {
+            lastError = err;
+            console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed for ${mailOptions.to}:`, err.message);
 
+            // On any error, reset the transporter so a fresh connection is tried next time.
+            _transporter = null;
+
+            if (attempt < maxAttempts) {
+                // Exponential back-off: 1s, 2s, 4s…
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
+    }
+
+    throw lastError;
+};
+
+// ── OTP email ─────────────────────────────────────────────────────────────────
+export const sendOtpEmail = async (
+    to: string,
+    otp: string,
+    userName: string,
+): Promise<void> => {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -90,17 +138,20 @@ export const sendOtpEmail = async (to: string, otp: string, userName: string): P
     </html>
     `;
 
-    await transporter.sendMail({
-        from: `"Clean India" <${process.env.EMAIL_USER}>`,
+    await sendWithRetry({
+        from:    `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔐 Your Clean India Verification Code',
         html,
     });
 };
 
-export const sendPasswordResetEmail = async (to: string, resetUrl: string, userName: string): Promise<void> => {
-    const transporter = createTransporter();
-
+// ── Password reset email ──────────────────────────────────────────────────────
+export const sendPasswordResetEmail = async (
+    to: string,
+    resetUrl: string,
+    userName: string,
+): Promise<void> => {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -161,8 +212,8 @@ export const sendPasswordResetEmail = async (to: string, resetUrl: string, userN
     </html>
     `;
 
-    await transporter.sendMail({
-        from: `"Clean India" <${process.env.EMAIL_USER}>`,
+    await sendWithRetry({
+        from:    `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔑 Reset Your Clean India Password',
         html,
