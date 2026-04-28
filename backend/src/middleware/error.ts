@@ -10,6 +10,12 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
         return ApiResponse.error(res, message, 400);
     }
 
+    // MongoDB duplicate key error (e.g. unique email constraint)
+    if (err.code === 11000 || err.name === 'MongoServerError') {
+        const field = Object.keys(err.keyValue || {})[0] || 'field';
+        return ApiResponse.error(res, `An account with this ${field} already exists. Please log in instead.`, 409);
+    }
+
     // Mongoose cast error (invalid ID)
     if (err.name === 'CastError') {
         return ApiResponse.error(res, 'Resource not found', 404);

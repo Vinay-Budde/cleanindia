@@ -29,20 +29,44 @@ export class AuthService {
     static async register(userData: any) {
         const { name, email, phone, password, role } = userData;
 
-        // Check if a verified user already exists
-        const existingVerified = await User.findOne({ email, isVerified: true });
-        if (existingVerified) {
-            throw new Error('User already exists with this email');
+        // Single atomic lookup — eliminates race condition that caused E11000 duplicate key errors.
+        // If two requests come in at the same time for the same email, only one will find/create
+        // the record; the other will get the E11000 safety-net in the global error handler.
+        const existingUser = await User.findOne({ email });
+
+        if (existingUser) {
+            if (existingUser.isVerified) {
+                // Already a full registered user — reject cleanly
+                throw new Error('An account with this email already exists. Please log in instead.');
+            }
+            // Unverified user — refresh their OTP so they can try again
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(password, salt);
+            const rawOtp = generateOtp();
+
+            existingUser.name = name;
+            existingUser.phone = phone;
+            existingUser.passwordHash = passwordHash;
+            existingUser.otpCode = hashOtp(rawOtp);
+            existingUser.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+            await existingUser.save();
+
+            try {
+                await sendOtpEmail(email, rawOtp, name);
+            } catch (err: any) {
+                console.error(`[SMTP ERROR] OTP refresh email failed for ${email}:`, err);
+                throw new Error('Failed to send OTP email. Please check your email address and try again.');
+            }
+
+            return { requiresVerification: true, message: 'A new OTP has been sent to your email. Please verify to complete registration.' };
         }
 
-        // Hash password
+        // Brand new user — hash password and assign role
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        // Assign roles, but check if they match the designated admin email
         const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@cleanindia.gov.in';
         let assignedRole: 'citizen' | 'admin' | 'worker' = 'citizen';
-
         if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
             assignedRole = 'admin';
         } else {
@@ -50,35 +74,21 @@ export class AuthService {
             assignedRole = allowedPublicRoles.includes(role) ? role : 'citizen';
         }
 
-        // Generate OTP
         const rawOtp = generateOtp();
         const hashedOtp = hashOtp(rawOtp);
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-        // Upsert: if a pending (unverified) user exists with this email, update their OTP.
-        // This handles the "resend OTP" case.
-        let user = await User.findOne({ email, isVerified: false });
-        if (user) {
-            user.name = name;
-            user.phone = phone;
-            user.passwordHash = passwordHash;
-            user.role = assignedRole;
-            user.otpCode = hashedOtp;
-            user.otpExpires = otpExpires;
-            await user.save();
-        } else {
-            user = new User({
-                name,
-                email,
-                phone,
-                passwordHash,
-                role: assignedRole,
-                isVerified: false,
-                otpCode: hashedOtp,
-                otpExpires,
-            });
-            await user.save();
-        }
+        const user = new User({
+            name,
+            email,
+            phone,
+            passwordHash,
+            role: assignedRole,
+            isVerified: false,
+            otpCode: hashedOtp,
+            otpExpires,
+        });
+        await user.save();
 
         // Send OTP email — awaited so any delivery failure surfaces as an error to the user
         try {
