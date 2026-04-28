@@ -249,161 +249,92 @@ const AdminDashboard = () => {
     }, []);
     return (
         <Layout type="admin">
-            <div className="max-w-7xl mx-auto px-6 py-8 w-full">
-                {/* Header title */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-[#115e59] mb-1">Admin Dashboard</h1>
-                    <p className="text-gray-500">Municipal Corporation - Complaint Management Overview</p>
+            {/* Hero Banner */}
+            <div style={{background:'linear-gradient(135deg,#0f2027 0%,#203a43 50%,#2c5364 100%)',position:'relative',overflow:'hidden'}} className="text-white pt-10 pb-20 px-6 md:px-12 w-full">
+                <div style={{position:'absolute',top:'-60px',right:'-60px',width:'280px',height:'280px',borderRadius:'50%',background:'rgba(20,184,166,0.12)',filter:'blur(50px)'}}/>
+                <div style={{position:'absolute',bottom:'-40px',left:'20%',width:'200px',height:'200px',borderRadius:'50%',background:'rgba(99,102,241,0.1)',filter:'blur(40px)'}}/>
+                <div className="max-w-7xl mx-auto relative">
+                    <div style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:99,padding:'6px 16px',fontSize:12,fontWeight:600,color:'#a7f3d0',marginBottom:20}}>
+                        <BarChart2 style={{width:14,height:14}}/>Municipal Corporation · Admin Portal
+                    </div>
+                    <h1 style={{fontSize:40,fontWeight:800,marginBottom:8,lineHeight:1.1}}>Admin <span style={{color:'#5eead4'}}>Dashboard</span></h1>
+                    <p style={{color:'rgba(167,243,208,0.7)',fontSize:15}}>Real-time complaint management &amp; city analytics</p>
+                </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto px-6 -mt-12 relative z-10 w-full pb-12">
+                {/* KPI Row 1 */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-5">
+                    {[
+                        {label:'Avg. Resolution',val:stats.avgResolution,sub:'Real-time based',Icon:Timer,grad:'linear-gradient(135deg,#a855f7,#7c3aed)'},
+                        {label:'Pending',val:stats.pending,sub:'Needs attention',Icon:Clock,grad:'linear-gradient(135deg,#f97316,#ea580c)',border:'#f97316'},
+                        {label:'In Progress',val:stats.inProgress,sub:'Active assignments',Icon:Activity,grad:'linear-gradient(135deg,#8b5cf6,#6366f1)',border:'#8b5cf6'},
+                        {label:'Resolved',val:stats.resolved,sub:`${stats.total>0?Math.round(stats.resolved/stats.total*100):0}% rate`,Icon:CheckCircle,grad:'linear-gradient(135deg,#10b981,#059669)',border:'#10b981'},
+                    ].map((c,i)=>(
+                        <div key={i} style={{background:'white',borderRadius:16,padding:'20px 22px',boxShadow:'0 8px 32px rgba(0,0,0,0.09)',borderLeft:c.border?`4px solid ${c.border}`:undefined,border:c.border?undefined:'1px solid #f0f0f0'}} className="flex items-center gap-4">
+                            <div style={{background:c.grad,borderRadius:12,width:48,height:48,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 6px 16px rgba(0,0,0,0.2)`}}>
+                                <c.Icon className="w-5 h-5 text-white"/>
+                            </div>
+                            <div>
+                                <p style={{fontSize:10,color:'#9ca3af',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{c.label}</p>
+                                <p style={{fontSize:28,fontWeight:800,color:'#111827',lineHeight:1}}>{isLoading?<Skeleton width={40} height={28}/>:c.val}</p>
+                                <p style={{fontSize:11,color:'#6b7280',marginTop:2}}>{c.sub}</p>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                {/* KPI Cards */}
-                <div className="space-y-6 mb-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {/* Avg Resolution */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Avg. Resolution</p>
-                                <h2 className="text-3xl font-bold text-gray-900 mb-1">
-                                    {isLoading ? <Skeleton width={60} height={32} /> : stats.avgResolution}
-                                </h2>
-                                <p className="text-xs text-green-600 flex items-center gap-1 font-medium bg-green-50 w-fit px-2 py-0.5 rounded-full mt-2">
-                                    <TrendingUp className="w-3 h-3" /> Real-time Based
-                                </p>
-                            </div>
-                            <div className="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center">
-                                <Timer className="w-6 h-6 text-purple-600" />
-                            </div>
-                        </div>
-
-                        {/* Pending */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border-l-[3px] border-l-orange-500 border border-t-gray-100 border-r-gray-100 border-b-gray-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Pending</p>
-                                <h2 className="text-3xl font-bold text-[#ea580c] mb-1">
-                                    {isLoading ? <Skeleton width={40} height={32} /> : stats.pending}
-                                </h2>
-                                <p className="text-xs text-[#ea580c] font-medium">Needs attention</p>
-                            </div>
-                            <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center">
-                                <Clock className="w-6 h-6" />
-                            </div>
-                        </div>
-
-                        {/* In Progress */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border-l-[3px] border-l-purple-500 border border-t-gray-100 border-r-gray-100 border-b-gray-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">In Progress</p>
-                                <h2 className="text-3xl font-bold text-purple-600 mb-1">
-                                    {isLoading ? <Skeleton width={40} height={32} /> : stats.inProgress}
-                                </h2>
-                                <p className="text-xs text-purple-500 font-medium">Active assignments</p>
-                            </div>
-                            <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center">
-                                <Activity className="w-6 h-6" />
-                            </div>
-                        </div>
-
-                        {/* Resolved */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border-l-[3px] border-l-green-500 border border-t-gray-100 border-r-gray-100 border-b-gray-100 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Resolved</p>
-                                <h2 className="text-3xl font-bold text-green-600 mb-1">
-                                    {isLoading ? <Skeleton width={40} height={32} /> : stats.resolved}
-                                </h2>
-                                <p className="text-xs text-green-600 font-medium">↑ 8% resolution rate</p>
-                            </div>
-                            <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center">
-                                <CheckCircle className="w-6 h-6" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Critical Issues */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="w-12 h-12 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
-                                <AlertCircle className="w-6 h-6" />
+                {/* KPI Row 2 */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-7">
+                    {[
+                        {Icon:AlertCircle,label:'Critical Issues',val:stats.critical,grad:'linear-gradient(135deg,#ef4444,#dc2626)',bg:'#fff5f5'},
+                        {Icon:Timer,label:'Avg Resolution Time',val:`${stats.avgResolutionValue} ${stats.avgResolutionUnit}`,grad:'linear-gradient(135deg,#3b82f6,#2563eb)',bg:'#eff6ff'},
+                        {Icon:Users,label:'Active Citizens',val:'2,845',grad:'linear-gradient(135deg,#10b981,#059669)',bg:'#f0fdf4'},
+                    ].map((c,i)=>(
+                        <div key={i} style={{background:c.bg,borderRadius:16,padding:'20px',boxShadow:'0 4px 20px rgba(0,0,0,0.06)',border:'1px solid rgba(0,0,0,0.04)'}} className="flex items-center gap-4">
+                            <div style={{background:c.grad,borderRadius:12,width:44,height:44,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                <c.Icon className="w-5 h-5 text-white"/>
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500 mb-1">Critical Issues</p>
-                                <h2 className="text-2xl font-bold text-gray-900">{stats.critical}</h2>
+                                <p style={{fontSize:10,color:'#6b7280',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>{c.label}</p>
+                                <p style={{fontSize:22,fontWeight:800,color:'#111827'}}>{isLoading?<Skeleton width={60} height={24}/>:c.val}</p>
                             </div>
                         </div>
-
-                        {/* Avg Resolution */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
-                                <Timer className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Avg Resolution Time</p>
-                                <h2 className="text-2xl font-bold text-gray-900">{stats.avgResolutionValue} <span className="text-base font-normal">{stats.avgResolutionUnit}</span></h2>
-                            </div>
-                        </div>
-
-                        {/* Active Citizens */}
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                            <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center">
-                                <Users className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 mb-1">Active Citizens</p>
-                                <h2 className="text-2xl font-bold text-gray-900">2,845</h2>
-                            </div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
                 {/* Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-900 mb-1">Monthly Complaint Trend</h3>
-                        <p className="text-sm text-gray-500 mb-6">Complaints vs Resolved (Last 7 months)</p>
-                        <div className="h-[300px] w-full">
-                            {isLoading ? (
-                                <Skeleton width="100%" height="100%" />
-                            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div style={{background:'white',borderRadius:16,padding:'24px',boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #f0f0f0'}}>
+                        <h3 style={{fontWeight:700,color:'#111827',marginBottom:2}}>Monthly Complaint Trend</h3>
+                        <p style={{fontSize:12,color:'#9ca3af',marginBottom:20}}>Complaints vs Resolved (Last 6 months)</p>
+                        <div className="h-[280px]">
+                            {isLoading?<Skeleton width="100%" height="100%"/>:(
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={trendData} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                                        <RechartsTooltip
-                                            contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        />
-                                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                        <Line type="monotone" dataKey="total" name="Total Complaints" stroke="#115e59" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                                        <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#22c55e" strokeWidth={2} dot={{ r: 4, strokeWidth: 2 }} />
+                                    <LineChart data={trendData} margin={{top:5,right:20,left:-20,bottom:5}}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6"/>
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11}} dy={8}/>
+                                        <YAxis axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11}}/>
+                                        <RechartsTooltip contentStyle={{borderRadius:10,border:'1px solid #E5E7EB',boxShadow:'0 8px 24px rgba(0,0,0,0.1)'}}/>
+                                        <Legend iconType="circle" wrapperStyle={{paddingTop:16,fontSize:12}}/>
+                                        <Line type="monotone" dataKey="total" name="Total" stroke="#6366f1" strokeWidth={2.5} dot={{r:4}} activeDot={{r:6}}/>
+                                        <Line type="monotone" dataKey="resolved" name="Resolved" stroke="#10b981" strokeWidth={2.5} dot={{r:4}}/>
                                     </LineChart>
                                 </ResponsiveContainer>
                             )}
                         </div>
                     </div>
-
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-900 mb-1">Category Distribution</h3>
-                        <p className="text-sm text-gray-500 mb-6">Complaints by type</p>
-                        <div className="h-[300px] w-full flex items-center justify-center">
-                            {isLoading ? (
-                                <Skeleton width="100%" height="100%" />
-                            ) : (
+                    <div style={{background:'white',borderRadius:16,padding:'24px',boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #f0f0f0'}}>
+                        <h3 style={{fontWeight:700,color:'#111827',marginBottom:2}}>Category Distribution</h3>
+                        <p style={{fontSize:12,color:'#9ca3af',marginBottom:20}}>Complaints by type</p>
+                        <div className="h-[280px]">
+                            {isLoading?<Skeleton width="100%" height="100%"/>:(
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie
-                                            data={categoryData}
-                                            cx="50%"
-                                            cy="50%"
-                                            labelLine={false}
-                                            outerRadius={100}
-                                            innerRadius={0}
-                                            dataKey="value"
-                                            label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                        >
-                                            {categoryData.map((entry: any, index: number) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
+                                        <Pie data={categoryData} cx="50%" cy="50%" outerRadius={100} innerRadius={45} dataKey="value" label={({name,percent}:any)=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                                            {categoryData.map((e:any,i:number)=><Cell key={i} fill={e.color}/>)}
                                         </Pie>
-                                        <RechartsTooltip />
+                                        <RechartsTooltip contentStyle={{borderRadius:10,border:'1px solid #E5E7EB'}}/>
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
@@ -411,214 +342,95 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                {/* Ward-wise Chart */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
-                    <h3 className="font-bold text-gray-900 mb-1">Ward-wise Issue Distribution</h3>
-                    <p className="text-sm text-gray-500 mb-6">Top 6 wards with most complaints</p>
-                    <div className="h-[300px] w-full">
-                        {isLoading ? (
-                            <Skeleton width="100%" height="100%" />
-                        ) : (
+                {/* Ward Chart */}
+                <div style={{background:'white',borderRadius:16,padding:'24px',boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #f0f0f0',marginBottom:24}}>
+                    <h3 style={{fontWeight:700,color:'#111827',marginBottom:2}}>Ward-wise Issue Distribution</h3>
+                    <p style={{fontSize:12,color:'#9ca3af',marginBottom:20}}>Top 6 wards with most complaints</p>
+                    <div className="h-[260px]">
+                        {isLoading?<Skeleton width="100%" height="100%"/>:(
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={wardData} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                                    <RechartsTooltip
-                                        cursor={{ fill: '#F3F4F6' }}
-                                        contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
-                                    />
-                                    <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                                    <Bar dataKey="issues" name="Total Issues" fill="#166534" radius={[4, 4, 0, 0]} barSize={60} />
+                                <BarChart data={wardData} margin={{top:10,right:20,left:-20,bottom:5}}>
+                                    <defs>
+                                        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#6366f1"/>
+                                            <stop offset="100%" stopColor="#a855f7"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6"/>
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11}} dy={8}/>
+                                    <YAxis axisLine={false} tickLine={false} tick={{fill:'#9ca3af',fontSize:11}}/>
+                                    <RechartsTooltip cursor={{fill:'#F9FAFB'}} contentStyle={{borderRadius:10,border:'1px solid #E5E7EB'}}/>
+                                    <Bar dataKey="issues" name="Total Issues" fill="url(#barGrad)" radius={[6,6,0,0]} barSize={50}/>
                                 </BarChart>
                             </ResponsiveContainer>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8">
-                    {/* Map Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
+                {/* Map Section */}
+                <div style={{background:'white',borderRadius:16,padding:'24px',boxShadow:'0 8px 32px rgba(0,0,0,0.08)',border:'1px solid #f0f0f0',marginBottom:24}}>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                         <div>
-                            <h3 className="font-bold text-gray-900 mb-1">Geospatial Issue Analytics</h3>
-                            <p className="text-sm text-gray-500">Live visualization of complaints across the city by priority</p>
+                            <h3 style={{fontWeight:700,color:'#111827',marginBottom:2}}>Geospatial Issue Analytics</h3>
+                            <p style={{fontSize:12,color:'#9ca3af'}}>Live complaint visualization by priority</p>
                         </div>
-                        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
-                            <button
-                                onClick={() => setViewMode('markers')}
-                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'markers' ? 'bg-white text-[#115e59] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Markers
-                            </button>
-                            <button
-                                onClick={() => setViewMode('heatmap')}
-                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'heatmap' ? 'bg-white text-[#115e59] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                            >
-                                Heatmap
-                            </button>
+                        <div style={{background:'#f3f4f6',padding:4,borderRadius:10,display:'flex'}}>
+                            {(['markers','heatmap'] as const).map(m=>(
+                                <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 18px',borderRadius:8,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',transition:'all 0.2s',background:viewMode===m?'white':'transparent',color:viewMode===m?'#115e59':'#9ca3af',boxShadow:viewMode===m?'0 2px 8px rgba(0,0,0,0.1)':'none'}}>
+                                    {m.charAt(0).toUpperCase()+m.slice(1)}
+                                </button>
+                            ))}
                         </div>
                     </div>
-
-                    {/* Priority filter chips + per-priority counts */}
-                    {viewMode === 'markers' && (
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                            <span className="text-xs font-semibold text-gray-500 mr-1">Filter by priority:</span>
-                            {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
-                                const cfg = PRIORITY_CONFIG[p];
-                                const count = complaints.filter((c: any) => c.priority === p && c.latitude && c.longitude).length;
-                                const active = activePriorities.has(p);
-                                return (
-                                    <button
-                                        key={p}
-                                        onClick={() => {
-                                            setActivePriorities(prev => {
-                                                const next = new Set(prev);
-                                                if (next.has(p)) { next.delete(p); } else { next.add(p); }
-                                                return next;
-                                            });
-                                        }}
-                                        style={active ? { background: cfg.bg, borderColor: cfg.border, color: cfg.color } : {}}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-                                            active ? 'opacity-100' : 'bg-gray-50 border-gray-200 text-gray-400 opacity-60'
-                                        }`}
-                                    >
-                                        <span style={{ background: active ? cfg.dot : '#9ca3af' }} className="w-2 h-2 rounded-full inline-block"></span>
-                                        {cfg.label}
-                                        <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                            active ? 'bg-white bg-opacity-70' : 'bg-gray-100'
-                                        }`}>{count}</span>
-                                    </button>
-                                );
+                    {viewMode==='markers'&&(
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            <span style={{fontSize:11,fontWeight:600,color:'#9ca3af',marginRight:4,alignSelf:'center'}}>Filter:</span>
+                            {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p=>{
+                                const cfg=PRIORITY_CONFIG[p];const count=complaints.filter((c:any)=>c.priority===p&&c.latitude&&c.longitude).length;const active=activePriorities.has(p);
+                                return <button key={p} onClick={()=>{setActivePriorities(prev=>{const n=new Set(prev);n.has(p)?n.delete(p):n.add(p);return n;});}} style={{background:active?cfg.bg:'#f9fafb',border:`1px solid ${active?cfg.border:'#e5e7eb'}`,color:active?cfg.color:'#9ca3af',borderRadius:99,padding:'4px 14px',fontSize:11,fontWeight:700,cursor:'pointer',opacity:active?1:0.6,display:'inline-flex',alignItems:'center',gap:6}}>
+                                    <span style={{background:active?cfg.dot:'#9ca3af',width:6,height:6,borderRadius:'50%',display:'inline-block'}}/>{cfg.label} ({count})
+                                </button>;
                             })}
-                            <button
-                                onClick={() => setActivePriorities(new Set(['critical', 'high', 'medium', 'low']))}
-                                className="ml-auto text-xs text-[#115e59] font-medium hover:underline"
-                            >Show all</button>
+                            <button onClick={()=>setActivePriorities(new Set(['critical','high','medium','low']))} style={{marginLeft:'auto',fontSize:11,color:'#115e59',fontWeight:600,background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>Show all</button>
                         </div>
                     )}
-
-                    {/* Map */}
-                    <div className="h-[480px] w-full rounded-xl overflow-hidden border border-gray-100 relative" style={{ zIndex: 0 }}>
-                        {isLoading ? (
-                            <Skeleton width="100%" height="100%" />
-                        ) : (
-                            <MapContainer
-                                center={[20.5937, 78.9629]}
-                                zoom={5}
-                                style={{ height: '100%', width: '100%' }}
-                                zoomControl={true}
-                            >
-                                <TileLayer
-                                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                                    maxZoom={19}
-                                />
-
-                                {viewMode === 'markers' ? (
-                                    <MarkerClusterGroup
-                                        chunkedLoading
-                                        showCoverageOnHover={false}
-                                        maxClusterRadius={50}
-                                    >
-                                        {complaints
-                                            .filter((c: any) => c.latitude && c.longitude && activePriorities.has(c.priority))
-                                            .map((c: any) => {
-                                                const cfg = PRIORITY_CONFIG[c.priority as Priority] || PRIORITY_CONFIG.low;
-                                                const statusColors: Record<string, string> = {
-                                                    submitted: '#6b7280',
-                                                    verified: '#3b82f6',
-                                                    assigned: '#8b5cf6',
-                                                    'in progress': '#f97316',
-                                                    resolved: '#22c55e',
-                                                };
-                                                const statusColor = statusColors[c.status] || '#6b7280';
-                                                const date = new Date(c.reportedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-                                                return (
-                                                    <Marker
-                                                        key={c._id}
-                                                        position={[c.latitude, c.longitude]}
-                                                        icon={createPriorityIcon(c.priority)}
-                                                    >
-                                                        <Popup minWidth={240} maxWidth={280}>
-                                                            <div style={{ fontFamily: 'system-ui, sans-serif', minWidth: 240 }}>
-                                                                {/* Popup header strip */}
-                                                                <div style={{ background: cfg.color, padding: '10px 14px 8px' }}>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                                        <span style={{ background: 'rgba(255,255,255,0.25)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                                            {cfg.label} Priority
-                                                                        </span>
-                                                                        <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 9 }}>{c.complaintId}</span>
-                                                                    </div>
-                                                                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, lineHeight: 1.3 }}>{c.title}</div>
-                                                                </div>
-                                                                {/* Popup body */}
-                                                                <div style={{ padding: '10px 14px 12px', background: '#fff' }}>
-                                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', marginBottom: 8 }}>
-                                                                        <div>
-                                                                            <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', marginBottom: 1 }}>Category</div>
-                                                                            <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{c.category}</div>
-                                                                        </div>
-                                                                        <div>
-                                                                            <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', marginBottom: 1 }}>Status</div>
-                                                                            <div style={{ fontSize: 11, fontWeight: 700, color: statusColor, textTransform: 'capitalize' }}>{c.status}</div>
-                                                                        </div>
-                                                                        <div>
-                                                                            <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', marginBottom: 1 }}>Location</div>
-                                                                            <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{c.location}</div>
-                                                                        </div>
-                                                                        <div>
-                                                                            <div style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', marginBottom: 1 }}>Reported</div>
-                                                                            <div style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{date}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                    {c.reportedBy && (
-                                                                        <div style={{ fontSize: 10, color: '#6b7280', borderTop: '1px solid #f3f4f6', paddingTop: 6 }}>
-                                                                            Reported by <span style={{ fontWeight: 600, color: '#374151' }}>{c.reportedBy}</span>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </Popup>
-                                                    </Marker>
-                                                );
-                                            })
-                                        }
+                    <div style={{height:440,borderRadius:12,overflow:'hidden',border:'1px solid #f0f0f0',position:'relative',zIndex:0}}>
+                        {isLoading?<Skeleton width="100%" height="100%"/>:(
+                            <MapContainer center={[20.5937,78.9629]} zoom={5} style={{height:'100%',width:'100%'}} zoomControl>
+                                <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' maxZoom={19}/>
+                                {viewMode==='markers'?(
+                                    <MarkerClusterGroup chunkedLoading showCoverageOnHover={false} maxClusterRadius={50}>
+                                        {complaints.filter((c:any)=>c.latitude&&c.longitude&&activePriorities.has(c.priority)).map((c:any)=>{
+                                            const cfg=PRIORITY_CONFIG[c.priority as Priority]||PRIORITY_CONFIG.low;
+                                            const date=new Date(c.reportedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+                                            return <Marker key={c._id} position={[c.latitude,c.longitude]} icon={createPriorityIcon(c.priority)}>
+                                                <Popup minWidth={220}>
+                                                    <div style={{fontFamily:'system-ui',minWidth:220}}>
+                                                        <div style={{background:cfg.color,padding:'10px 14px',margin:'-8px -12px 10px',borderRadius:'8px 8px 0 0'}}>
+                                                            <span style={{background:'rgba(255,255,255,0.2)',color:'#fff',fontSize:9,fontWeight:700,padding:'2px 8px',borderRadius:99,textTransform:'uppercase'}}>{cfg.label} Priority</span>
+                                                            <div style={{color:'#fff',fontWeight:700,fontSize:13,marginTop:4}}>{c.title}</div>
+                                                        </div>
+                                                        <div style={{padding:'0 2px 4px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 12px',fontSize:11}}>
+                                                            <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Category</div><div style={{color:'#374151',fontWeight:600}}>{c.category}</div></div>
+                                                            <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Status</div><div style={{color:cfg.color,fontWeight:700,textTransform:'capitalize'}}>{c.status}</div></div>
+                                                            <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Location</div><div style={{color:'#374151',fontWeight:600}}>{c.location}</div></div>
+                                                            <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Reported</div><div style={{color:'#374151',fontWeight:600}}>{date}</div></div>
+                                                        </div>
+                                                        {c.reportedBy&&<div style={{fontSize:10,color:'#6b7280',borderTop:'1px solid #f3f4f6',paddingTop:6,marginTop:4}}>By <b style={{color:'#374151'}}>{c.reportedBy}</b></div>}
+                                                    </div>
+                                                </Popup>
+                                            </Marker>;
+                                        })}
                                     </MarkerClusterGroup>
-                                ) : (
-                                    <HeatmapLayer
-                                        points={complaints.filter((c: any) => c.latitude && c.longitude).map((c: any) => [
-                                            c.latitude,
-                                            c.longitude,
-                                            c.priority === 'critical' ? 1.0 : c.priority === 'high' ? 0.75 : c.priority === 'medium' ? 0.5 : 0.3
-                                        ])}
-                                    />
-                                )}
-
-                                {/* Map Legend Overlay */}
-                                {viewMode === 'markers' && (
-                                    <div
-                                        style={{
-                                            position: 'absolute',
-                                            bottom: 28,
-                                            left: 12,
-                                            zIndex: 1000,
-                                            background: 'rgba(255,255,255,0.95)',
-                                            backdropFilter: 'blur(8px)',
-                                            borderRadius: 10,
-                                            padding: '8px 12px',
-                                            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                            border: '1px solid #e5e7eb',
-                                            minWidth: 110,
-                                        }}
-                                    >
-                                        <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Priority</div>
-                                        {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p => (
-                                            <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: PRIORITY_CONFIG[p].color, display: 'inline-block', flexShrink: 0 }}></span>
-                                                <span style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{PRIORITY_CONFIG[p].label}</span>
-                                                <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9ca3af', fontWeight: 700 }}>
-                                                    {complaints.filter((c: any) => c.priority === p && c.latitude && c.longitude).length}
-                                                </span>
+                                ):<HeatmapLayer points={complaints.filter((c:any)=>c.latitude&&c.longitude).map((c:any)=>[c.latitude,c.longitude,c.priority==='critical'?1:c.priority==='high'?0.75:c.priority==='medium'?0.5:0.3])}/>}
+                                {viewMode==='markers'&&(
+                                    <div style={{position:'absolute',bottom:20,left:12,zIndex:1000,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(8px)',borderRadius:10,padding:'10px 14px',boxShadow:'0 4px 16px rgba(0,0,0,0.12)',border:'1px solid #e5e7eb',minWidth:110}}>
+                                        <div style={{fontSize:9,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Priority</div>
+                                        {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p=>(
+                                            <div key={p} style={{display:'flex',alignItems:'center',gap:7,marginBottom:4}}>
+                                                <span style={{width:8,height:8,borderRadius:'50%',background:PRIORITY_CONFIG[p].color,flexShrink:0}}/>
+                                                <span style={{fontSize:11,fontWeight:600,color:'#374151'}}>{PRIORITY_CONFIG[p].label}</span>
+                                                <span style={{marginLeft:'auto',fontSize:10,color:'#9ca3af',fontWeight:700}}>{complaints.filter((c:any)=>c.priority===p&&c.latitude&&c.longitude).length}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -626,49 +438,27 @@ const AdminDashboard = () => {
                             </MapContainer>
                         )}
                     </div>
-
-                    {/* No coords notice */}
-                    {!isLoading && complaints.filter((c: any) => !c.latitude || !c.longitude).length > 0 && (
-                        <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
-                            {complaints.filter((c: any) => !c.latitude || !c.longitude).length} complaint(s) have no GPS coordinates and are not shown on the map.
-                        </p>
+                    {!isLoading&&complaints.filter((c:any)=>!c.latitude||!c.longitude).length>0&&(
+                        <p style={{fontSize:11,color:'#9ca3af',marginTop:8,display:'flex',alignItems:'center',gap:4}}><AlertCircle style={{width:12,height:12}}/>{complaints.filter((c:any)=>!c.latitude||!c.longitude).length} complaint(s) without GPS not shown.</p>
                     )}
                 </div>
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <button className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center hover:border-emerald-500 hover:shadow-md transition-all group">
-                        <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                            <BarChart2 className="w-6 h-6" />
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-1">Generate Report</h3>
-                        <p className="text-xs text-gray-500">Export analytics</p>
-                    </button>
-
-                    <button className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center hover:border-emerald-500 hover:shadow-md transition-all group">
-                        <div className="w-12 h-12 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4 group-hover:bg-green-500 group-hover:text-white transition-colors">
-                            <MapPin className="w-6 h-6" />
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-1">Map View</h3>
-                        <p className="text-xs text-gray-500">View heatmap</p>
-                    </button>
-
-                    <button className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center hover:border-emerald-500 hover:shadow-md transition-all group">
-                        <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mb-4 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                            <Users className="w-6 h-6" />
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-1">Team Management</h3>
-                        <p className="text-xs text-gray-500">Assign workers</p>
-                    </button>
-
-                    <button className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center hover:border-emerald-500 hover:shadow-md transition-all group">
-                        <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                            <PieChartIcon className="w-6 h-6" />
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-1">SLA Tracking</h3>
-                        <p className="text-xs text-gray-500">Monitor timelines</p>
-                    </button>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                    {[
+                        {Icon:BarChart2,label:'Generate Report',sub:'Export analytics',grad:'linear-gradient(135deg,#3b82f6,#2563eb)'},
+                        {Icon:MapPin,label:'Map View',sub:'View heatmap',grad:'linear-gradient(135deg,#10b981,#059669)'},
+                        {Icon:Users,label:'Team Management',sub:'Assign workers',grad:'linear-gradient(135deg,#f97316,#ea580c)'},
+                        {Icon:PieChartIcon,label:'SLA Tracking',sub:'Monitor timelines',grad:'linear-gradient(135deg,#a855f7,#7c3aed)'},
+                    ].map((c,i)=>(
+                        <button key={i} style={{background:'white',borderRadius:16,padding:'24px',boxShadow:'0 4px 20px rgba(0,0,0,0.07)',border:'1px solid #f0f0f0',cursor:'pointer',width:'100%',transition:'all 0.2s'}} className="hover:shadow-lg hover:-translate-y-0.5 flex flex-col items-center text-center">
+                            <div style={{background:c.grad,borderRadius:12,width:48,height:48,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
+                                <c.Icon className="w-5 h-5 text-white"/>
+                            </div>
+                            <p style={{fontWeight:700,color:'#111827',fontSize:14}}>{c.label}</p>
+                            <p style={{fontSize:11,color:'#9ca3af',marginTop:2}}>{c.sub}</p>
+                        </button>
+                    ))}
                 </div>
             </div>
         </Layout>
