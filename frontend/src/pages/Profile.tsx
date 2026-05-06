@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Save, Edit2, Shield, Camera, FileText, Lock, Eye, EyeOff, X, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Edit2, Shield, Camera, FileText, Lock, Eye, EyeOff, X, CheckCircle, Clock } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 import toast from 'react-hot-toast';
