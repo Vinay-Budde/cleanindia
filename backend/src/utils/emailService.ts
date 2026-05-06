@@ -10,25 +10,32 @@ const getTransporter = (): nodemailer.Transporter => {
 
     // Google App Passwords are shown with spaces in the UI — strip them.
     const pass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
+    const user = (process.env.EMAIL_USER || '').trim();
+    const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
+    const port = Number(process.env.EMAIL_PORT) || 587;
+
+    console.log(`[SMTP] Configuring transporter: host=${host} port=${port} user=${user}`);
 
     _transporter = nodemailer.createTransport({
-        host:   process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port:   Number(process.env.EMAIL_PORT) || 587,
-        secure: false,           // STARTTLS on port 587
+        host,
+        port,
+        secure: port === 465,    // true only for port 465 (SSL); 587 uses STARTTLS
         auth: {
-            user: process.env.EMAIL_USER,
+            user,
             pass,
         },
-        // ── Timeouts — critical for production (Render, Railway, etc.) ──────
-        connectionTimeout: 10_000,   // 10 s to establish the TCP connection
-        greetingTimeout:   10_000,   // 10 s waiting for the SMTP EHLO greeting
-        socketTimeout:     15_000,   // 15 s of inactivity before giving up
-        // ────────────────────────────────────────────────────────────────────
-        tls: { rejectUnauthorized: false },
-        pool: true,              // keep connections alive across sends
-        maxConnections: 3,
-        maxMessages: 100,
-    });
+        // ── Timeouts ──────────────────────────────────────────────────────
+        connectionTimeout: 15_000,
+        greetingTimeout:   15_000,
+        socketTimeout:     30_000,
+        // ──────────────────────────────────────────────────────────────────
+        tls: {
+            rejectUnauthorized: false,
+            ciphers: 'SSLv3',
+        },
+        // Do NOT pool for Gmail — it has connection limits per user
+        pool: false,
+    } as any);
 
     return _transporter;
 };
@@ -139,10 +146,11 @@ export const sendOtpEmail = async (
     `;
 
     await sendWithRetry({
-        from:    `"Clean India" <${process.env.EMAIL_USER}>`,
+        from: `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔐 Your Clean India Verification Code',
         html,
+        replyTo: process.env.EMAIL_USER,
     });
 };
 
@@ -213,9 +221,10 @@ export const sendPasswordResetEmail = async (
     `;
 
     await sendWithRetry({
-        from:    `"Clean India" <${process.env.EMAIL_USER}>`,
+        from: `"Clean India" <${process.env.EMAIL_USER}>`,
         to,
         subject: '🔑 Reset Your Clean India Password',
         html,
+        replyTo: process.env.EMAIL_USER,
     });
 };

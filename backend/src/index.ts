@@ -12,6 +12,7 @@ import path from 'path';
 import complaintRoutes from './routes/complaints';
 import authRoutes from './routes/auth';
 import notificationRoutes from './routes/notifications';
+import userRoutes from './routes/users';
 import { errorHandler } from './middleware/error';
 import { verifyEmailConnection } from './utils/emailService';
 
@@ -43,6 +44,7 @@ app.use('/api/', limiter);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', userRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {

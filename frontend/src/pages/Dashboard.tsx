@@ -448,12 +448,20 @@ const Dashboard = () => {
                                             <div key={complaint._id} className="flex items-center gap-3 group">
                                                 <div
                                                     className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center text-white font-bold text-sm"
-                                                    style={{ background: img ? undefined : 'linear-gradient(135deg, #115e59, #0d9488)' }}
+                                                    style={{ background: 'linear-gradient(135deg, #115e59, #0d9488)' }}
                                                 >
-                                                    {img
-                                                        ? <img src={img} alt={complaint.title} className="w-full h-full object-cover" />
-                                                        : complaint.category.charAt(0).toUpperCase()
-                                                    }
+                                                    {img ? (
+                                                        <img
+                                                            src={img}
+                                                            alt={complaint.title}
+                                                            className="w-full h-full object-cover"
+                                                            onError={e => {
+                                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        complaint.category.charAt(0).toUpperCase()
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs font-semibold text-gray-800 truncate">{complaint.title}</p>
