@@ -1,78 +1,61 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// ── Singleton transporter ─────────────────────────────────────────────────────
-// Created once on first use and reused. Avoids per-request connection overhead
-// and ensures the verify() handshake only happens once at startup.
-let _transporter: nodemailer.Transporter | null = null;
+// ── Singleton Resend client ───────────────────────────────────────────────────
+let _resend: Resend | null = null;
 
-const getTransporter = (): nodemailer.Transporter => {
-    if (_transporter) return _transporter;
-
-    // Google App Passwords are shown with spaces in the UI — strip them.
-    const pass = (process.env.EMAIL_PASS || '').replace(/\s/g, '');
-    const user = (process.env.EMAIL_USER || '').trim();
-    const host = (process.env.EMAIL_HOST || 'smtp.gmail.com').trim();
-    const port = Number(process.env.EMAIL_PORT) || 587;
-
-    console.log(`[SMTP] Configuring transporter: host=${host} port=${port} user=${user}`);
-
-    _transporter = nodemailer.createTransport({
-        host: host || 'smtp.gmail.com',
-        port: port,
-        secure: port === 465,
-        family: 4,
-        auth: {
-            user,
-            pass,
-        },
-        tls: {
-            rejectUnauthorized: false,
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 10000,
-    } as any);
-
-    return _transporter;
+const getResend = (): Resend => {
+    if (_resend) return _resend;
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
+    if (!apiKey) {
+        throw new Error('[EMAIL] RESEND_API_KEY is not set in environment variables.');
+    }
+    _resend = new Resend(apiKey);
+    console.log('[EMAIL] Resend client initialized.');
+    return _resend;
 };
 
-// ── Startup SMTP health-check ─────────────────────────────────────────────────
+// ── Startup email health-check ────────────────────────────────────────────────
+// Resend doesn't require a verify() step — if the key is present we're ready.
 export const verifyEmailConnection = async (): Promise<void> => {
-    return new Promise((resolve) => {
-        getTransporter().verify((error, success) => {
-            if (error) {
-                console.error("❌ SMTP Verify Error:", error);
-                _transporter = null;
-                resolve();
-            } else {
-                console.log("✅ SMTP Server Ready");
-                resolve();
-            }
-        });
-    });
+    try {
+        const apiKey = (process.env.RESEND_API_KEY || '').trim();
+        if (!apiKey) {
+            console.error('❌ EMAIL: RESEND_API_KEY is missing. Emails will not be sent.');
+        } else {
+            console.log('✅ EMAIL: Resend API key found — email service ready.');
+        }
+    } catch (err: any) {
+        console.error('❌ EMAIL init error:', err.message);
+    }
 };
 
 // ── Send with retry ────────────────────────────────────────────────────────────
 const sendWithRetry = async (
-    mailOptions: nodemailer.SendMailOptions,
+    payload: { from: string; to: string; subject: string; html: string; replyTo?: string },
     maxAttempts = 3,
 ): Promise<void> => {
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-            await getTransporter().sendMail(mailOptions);
-            console.log(`[EMAIL] ✅ Sent to ${mailOptions.to} (attempt ${attempt})`);
+            const resend = getResend();
+            const { error } = await resend.emails.send({
+                from: payload.from,
+                to: [payload.to],
+                subject: payload.subject,
+                html: payload.html,
+                replyTo: payload.replyTo,
+            });
+
+            if (error) throw new Error(error.message);
+
+            console.log(`[EMAIL] ✅ Sent to ${payload.to} (attempt ${attempt})`);
             return;
         } catch (err: any) {
             lastError = err;
-            console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed for ${mailOptions.to}:`, err.message);
-
-            // On any error, reset the transporter so a fresh connection is tried next time.
-            _transporter = null;
+            console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed for ${payload.to}:`, err.message);
 
             if (attempt < maxAttempts) {
-                // Exponential back-off: 1s, 2s, 4s…
                 await new Promise(r => setTimeout(r, 1000 * attempt));
             }
         }
@@ -87,6 +70,9 @@ export const sendOtpEmail = async (
     otp: string,
     userName: string,
 ): Promise<void> => {
+    const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@cleanindia.in';
+    const fromLabel = `"Clean India" <${fromAddress}>`;
+
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -144,11 +130,11 @@ export const sendOtpEmail = async (
     `;
 
     await sendWithRetry({
-        from: `"Clean India" <${process.env.EMAIL_USER}>`,
+        from: fromLabel,
         to,
         subject: '🔐 Your Clean India Verification Code',
         html,
-        replyTo: process.env.EMAIL_USER,
+        replyTo: fromAddress,
     });
 };
 
@@ -158,6 +144,9 @@ export const sendPasswordResetEmail = async (
     resetUrl: string,
     userName: string,
 ): Promise<void> => {
+    const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@cleanindia.in';
+    const fromLabel = `"Clean India" <${fromAddress}>`;
+
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -219,10 +208,10 @@ export const sendPasswordResetEmail = async (
     `;
 
     await sendWithRetry({
-        from: `"Clean India" <${process.env.EMAIL_USER}>`,
+        from: fromLabel,
         to,
         subject: '🔑 Reset Your Clean India Password',
         html,
-        replyTo: process.env.EMAIL_USER,
+        replyTo: fromAddress,
     });
 };
