@@ -20,6 +20,7 @@ const getTransporter = (): nodemailer.Transporter => {
         host,
         port,
         secure: port === 465,    // true only for port 465 (SSL); 587 uses STARTTLS
+        family: 4, // FORCE IPv4
         auth: {
             user,
             pass,
