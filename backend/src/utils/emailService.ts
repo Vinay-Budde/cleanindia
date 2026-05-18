@@ -1,60 +1,59 @@
-import { Resend } from 'resend';
+// ── Brevo (formerly Sendinblue) HTTP API email service ────────────────────────
+// Uses HTTPS API — not SMTP — so it works on Render's free tier.
+// Free plan: 300 emails/day, sends to ANY recipient, no domain needed.
 
-// ── Singleton Resend client ───────────────────────────────────────────────────
-let _resend: Resend | null = null;
+interface BrevoEmailPayload {
+    sender: { name: string; email: string };
+    to: { email: string; name?: string }[];
+    subject: string;
+    htmlContent: string;
+}
 
-const getResend = (): Resend => {
-    if (_resend) return _resend;
-    const apiKey = (process.env.RESEND_API_KEY || '').trim();
-    if (!apiKey) {
-        throw new Error('[EMAIL] RESEND_API_KEY is not set in environment variables.');
+const sendBrevoEmail = async (payload: BrevoEmailPayload): Promise<void> => {
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    if (!apiKey) throw new Error('[EMAIL] BREVO_API_KEY is not set.');
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'accept': 'application/json',
+            'api-key': apiKey,
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Brevo API error ${response.status}: ${errorBody}`);
     }
-    _resend = new Resend(apiKey);
-    console.log('[EMAIL] Resend client initialized.');
-    return _resend;
 };
 
-// ── Startup email health-check ────────────────────────────────────────────────
-// Resend doesn't require a verify() step — if the key is present we're ready.
+// ── Startup email health-check ─────────────────────────────────────────────────
 export const verifyEmailConnection = async (): Promise<void> => {
-    try {
-        const apiKey = (process.env.RESEND_API_KEY || '').trim();
-        if (!apiKey) {
-            console.error('❌ EMAIL: RESEND_API_KEY is missing. Emails will not be sent.');
-        } else {
-            console.log('✅ EMAIL: Resend API key found — email service ready.');
-        }
-    } catch (err: any) {
-        console.error('❌ EMAIL init error:', err.message);
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    if (!apiKey) {
+        console.error('❌ EMAIL: BREVO_API_KEY is missing. Emails will not be sent.');
+    } else {
+        console.log('✅ EMAIL: Brevo API key found — email service ready.');
     }
 };
 
 // ── Send with retry ────────────────────────────────────────────────────────────
 const sendWithRetry = async (
-    payload: { from: string; to: string; subject: string; html: string; replyTo?: string },
+    payload: BrevoEmailPayload,
     maxAttempts = 3,
 ): Promise<void> => {
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-            const resend = getResend();
-            const { error } = await resend.emails.send({
-                from: payload.from,
-                to: [payload.to],
-                subject: payload.subject,
-                html: payload.html,
-                replyTo: payload.replyTo,
-            });
-
-            if (error) throw new Error(error.message);
-
-            console.log(`[EMAIL] ✅ Sent to ${payload.to} (attempt ${attempt})`);
+            await sendBrevoEmail(payload);
+            console.log(`[EMAIL] ✅ Sent to ${payload.to[0].email} (attempt ${attempt})`);
             return;
         } catch (err: any) {
             lastError = err;
-            console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed for ${payload.to}:`, err.message);
-
+            console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed:`, err.message);
             if (attempt < maxAttempts) {
                 await new Promise(r => setTimeout(r, 1000 * attempt));
             }
@@ -70,8 +69,8 @@ export const sendOtpEmail = async (
     otp: string,
     userName: string,
 ): Promise<void> => {
-    const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@cleanindia.in';
-    const fromLabel = `"Clean India" <${fromAddress}>`;
+    const senderEmail = (process.env.EMAIL_FROM || 'noreply@cleanindia.in').trim();
+    const senderName = 'Clean India';
 
     const html = `
     <!DOCTYPE html>
@@ -86,7 +85,6 @@ export const sendOtpEmail = async (
         <tr>
           <td align="center">
             <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
-              <!-- Header -->
               <tr>
                 <td style="background:linear-gradient(135deg,#115e59,#0f766e);padding:32px 40px;text-align:center;">
                   <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#ffffff;margin-bottom:12px;line-height:48px;">CI</div>
@@ -94,7 +92,6 @@ export const sendOtpEmail = async (
                   <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">Smart City Civic Management Platform</p>
                 </td>
               </tr>
-              <!-- Body -->
               <tr>
                 <td style="padding:36px 40px;">
                   <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Verify Your Email</h2>
@@ -102,7 +99,6 @@ export const sendOtpEmail = async (
                   <p style="margin:0 0 28px;color:#6b7280;font-size:14px;line-height:1.6;">
                     Thank you for registering with Clean India. Use the One-Time Password (OTP) below to complete your account verification. This code expires in <strong>10 minutes</strong>.
                   </p>
-                  <!-- OTP Box -->
                   <div style="text-align:center;margin:0 0 28px;">
                     <div style="display:inline-block;background:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:20px 40px;">
                       <div style="font-size:11px;font-weight:700;color:#16a34a;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Your OTP Code</div>
@@ -115,7 +111,6 @@ export const sendOtpEmail = async (
                   </p>
                 </td>
               </tr>
-              <!-- Footer -->
               <tr>
                 <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #f3f4f6;">
                   <p style="margin:0;color:#d1d5db;font-size:11px;">© ${new Date().getFullYear()} Clean India. All rights reserved.</p>
@@ -130,11 +125,10 @@ export const sendOtpEmail = async (
     `;
 
     await sendWithRetry({
-        from: fromLabel,
-        to,
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: to, name: userName }],
         subject: '🔐 Your Clean India Verification Code',
-        html,
-        replyTo: fromAddress,
+        htmlContent: html,
     });
 };
 
@@ -144,8 +138,8 @@ export const sendPasswordResetEmail = async (
     resetUrl: string,
     userName: string,
 ): Promise<void> => {
-    const fromAddress = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@cleanindia.in';
-    const fromLabel = `"Clean India" <${fromAddress}>`;
+    const senderEmail = (process.env.EMAIL_FROM || 'noreply@cleanindia.in').trim();
+    const senderName = 'Clean India';
 
     const html = `
     <!DOCTYPE html>
@@ -160,7 +154,6 @@ export const sendPasswordResetEmail = async (
         <tr>
           <td align="center">
             <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
-              <!-- Header -->
               <tr>
                 <td style="background:linear-gradient(135deg,#115e59,#0f766e);padding:32px 40px;text-align:center;">
                   <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;color:#ffffff;margin-bottom:12px;line-height:48px;">CI</div>
@@ -168,7 +161,6 @@ export const sendPasswordResetEmail = async (
                   <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">Smart City Civic Management Platform</p>
                 </td>
               </tr>
-              <!-- Body -->
               <tr>
                 <td style="padding:36px 40px;">
                   <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;">Reset Your Password</h2>
@@ -193,7 +185,6 @@ export const sendPasswordResetEmail = async (
                   </p>
                 </td>
               </tr>
-              <!-- Footer -->
               <tr>
                 <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #f3f4f6;">
                   <p style="margin:0;color:#d1d5db;font-size:11px;">© ${new Date().getFullYear()} Clean India. All rights reserved.</p>
@@ -208,10 +199,9 @@ export const sendPasswordResetEmail = async (
     `;
 
     await sendWithRetry({
-        from: fromLabel,
-        to,
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: to, name: userName }],
         subject: '🔑 Reset Your Clean India Password',
-        html,
-        replyTo: fromAddress,
+        htmlContent: html,
     });
 };
