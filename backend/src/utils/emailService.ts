@@ -18,8 +18,8 @@ const getTransporter = (): nodemailer.Transporter => {
 
     _transporter = nodemailer.createTransport({
         host: host || 'smtp.gmail.com',
-        port: 465,
-        secure: true,
+        port: port,
+        secure: port === 465,
         family: 4,
         auth: {
             user,
