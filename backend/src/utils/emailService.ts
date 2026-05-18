@@ -31,7 +31,7 @@ const getTransporter = (): nodemailer.Transporter => {
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 10000,
-    });
+    } as any);
 
     return _transporter;
 };
