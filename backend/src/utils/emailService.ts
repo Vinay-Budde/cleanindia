@@ -17,42 +17,39 @@ const getTransporter = (): nodemailer.Transporter => {
     console.log(`[SMTP] Configuring transporter: host=${host} port=${port} user=${user}`);
 
     _transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,    // true only for port 465 (SSL); 587 uses STARTTLS
-        family: 4, // FORCE IPv4
+        host: host || 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        family: 4,
         auth: {
             user,
             pass,
         },
-        // ── Timeouts ──────────────────────────────────────────────────────
-        connectionTimeout: 15_000,
-        greetingTimeout:   15_000,
-        socketTimeout:     30_000,
-        // ──────────────────────────────────────────────────────────────────
         tls: {
             rejectUnauthorized: false,
-            ciphers: 'SSLv3',
         },
-        // Do NOT pool for Gmail — it has connection limits per user
-        pool: false,
-    } as any);
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+    });
 
     return _transporter;
 };
 
 // ── Startup SMTP health-check ─────────────────────────────────────────────────
 export const verifyEmailConnection = async (): Promise<void> => {
-    try {
-        await getTransporter().verify();
-        console.log('✅ SMTP connection verified — emails ready to send');
-    } catch (err: any) {
-        console.error('❌ SMTP connection FAILED:', err.message);
-        console.error('   Check EMAIL_USER and EMAIL_PASS in your environment variables.');
-        // Do NOT throw — a broken SMTP config shouldn't crash the server.
-        // Individual email sends will fail and surface their own errors.
-        _transporter = null;  // reset so the next request retries the connection
-    }
+    return new Promise((resolve) => {
+        getTransporter().verify((error, success) => {
+            if (error) {
+                console.error("❌ SMTP Verify Error:", error);
+                _transporter = null;
+                resolve();
+            } else {
+                console.log("✅ SMTP Server Ready");
+                resolve();
+            }
+        });
+    });
 };
 
 // ── Send with retry ────────────────────────────────────────────────────────────
