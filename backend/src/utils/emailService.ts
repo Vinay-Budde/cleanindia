@@ -1,55 +1,60 @@
-// ── Brevo (formerly Sendinblue) HTTP API email service ────────────────────────
-// Uses HTTPS API — not SMTP — so it works on Render's free tier.
-// Free plan: 300 emails/day, sends to ANY recipient, no domain needed.
+// ── Email Service — Nodemailer + Resend SMTP ───────────────────────────────
+// Uses Resend's SMTP relay (smtp.resend.com:465).
+// Credentials: username = "resend", password = RESEND_API_KEY.
+// Free plan: 3 000 emails/month, works on Render/Railway (HTTPS relay, no raw SMTP block).
 
-interface BrevoEmailPayload {
-    sender: { name: string; email: string };
-    to: { email: string; name?: string }[];
-    subject: string;
-    htmlContent: string;
-}
+import nodemailer from 'nodemailer';
 
-const sendBrevoEmail = async (payload: BrevoEmailPayload): Promise<void> => {
-    const apiKey = (process.env.BREVO_API_KEY || '').trim();
-    if (!apiKey) throw new Error('[EMAIL] BREVO_API_KEY is not set.');
+// ── Singleton transporter ─────────────────────────────────────────────────
+const createTransporter = () => {
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
 
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-            'accept': 'application/json',
-            'api-key': apiKey,
-            'content-type': 'application/json',
+    return nodemailer.createTransport({
+        host: 'smtp.resend.com',
+        port: 465,
+        secure: true, // TLS
+        auth: {
+            user: 'resend',         // always literally "resend"
+            pass: apiKey,           // your Resend API key
         },
-        body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Brevo API error ${response.status}: ${errorBody}`);
-    }
 };
 
-// ── Startup email health-check ─────────────────────────────────────────────────
+let _transporter: nodemailer.Transporter | null = null;
+const getTransporter = () => {
+    if (!_transporter) _transporter = createTransporter();
+    return _transporter;
+};
+
+// ── Startup health-check ──────────────────────────────────────────────────
 export const verifyEmailConnection = async (): Promise<void> => {
-    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
     if (!apiKey) {
-        console.error('❌ EMAIL: BREVO_API_KEY is missing. Emails will not be sent.');
-    } else {
-        console.log('✅ EMAIL: Brevo API key found — email service ready.');
+        console.error('❌ EMAIL: RESEND_API_KEY is missing. Emails will not be sent.');
+        return;
+    }
+
+    try {
+        const transporter = getTransporter();
+        await transporter.verify();
+        console.log('✅ EMAIL: Nodemailer + Resend SMTP connection verified — email service ready.');
+    } catch (err: any) {
+        console.error('❌ EMAIL: SMTP verification failed:', err.message);
     }
 };
 
-// ── Send with retry ────────────────────────────────────────────────────────────
+// ── Send with retry ───────────────────────────────────────────────────────
 const sendWithRetry = async (
-    payload: BrevoEmailPayload,
+    mailOptions: nodemailer.SendMailOptions,
     maxAttempts = 3,
 ): Promise<void> => {
     let lastError: any;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-            await sendBrevoEmail(payload);
-            console.log(`[EMAIL] ✅ Sent to ${payload.to[0].email} (attempt ${attempt})`);
+            const transporter = getTransporter();
+            const info = await transporter.sendMail(mailOptions);
+            console.log(`[EMAIL] ✅ Sent to ${mailOptions.to} (attempt ${attempt}) — messageId: ${info.messageId}`);
             return;
         } catch (err: any) {
             lastError = err;
@@ -63,14 +68,13 @@ const sendWithRetry = async (
     throw lastError;
 };
 
-// ── OTP email ─────────────────────────────────────────────────────────────────
+// ── OTP email ─────────────────────────────────────────────────────────────
 export const sendOtpEmail = async (
     to: string,
     otp: string,
     userName: string,
 ): Promise<void> => {
-    const senderEmail = (process.env.EMAIL_FROM || 'noreply@cleanindia.in').trim();
-    const senderName = 'Clean India';
+    const senderEmail = (process.env.EMAIL_FROM || 'onboarding@resend.dev').trim();
 
     const html = `
     <!DOCTYPE html>
@@ -125,21 +129,20 @@ export const sendOtpEmail = async (
     `;
 
     await sendWithRetry({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: to, name: userName }],
+        from: `"Clean India" <${senderEmail}>`,
+        to,
         subject: '🔐 Your Clean India Verification Code',
-        htmlContent: html,
+        html,
     });
 };
 
-// ── Password reset email ──────────────────────────────────────────────────────
+// ── Password reset email ──────────────────────────────────────────────────
 export const sendPasswordResetEmail = async (
     to: string,
     resetUrl: string,
     userName: string,
 ): Promise<void> => {
-    const senderEmail = (process.env.EMAIL_FROM || 'noreply@cleanindia.in').trim();
-    const senderName = 'Clean India';
+    const senderEmail = (process.env.EMAIL_FROM || 'onboarding@resend.dev').trim();
 
     const html = `
     <!DOCTYPE html>
@@ -199,9 +202,9 @@ export const sendPasswordResetEmail = async (
     `;
 
     await sendWithRetry({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: to, name: userName }],
+        from: `"Clean India" <${senderEmail}>`,
+        to,
         subject: '🔑 Reset Your Clean India Password',
-        htmlContent: html,
+        html,
     });
 };

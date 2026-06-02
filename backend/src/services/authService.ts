@@ -216,9 +216,11 @@ export class AuthService {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-        sendPasswordResetEmail(user.email, resetUrl, user.name).catch(err => {
-            console.error(`Failed to send password reset email to ${user.email}:`, err);
-        });
+        try {
+            await sendPasswordResetEmail(user.email, resetUrl, user.name);
+        } catch (err: any) {
+            console.error(`[EMAIL ERROR] Failed to send password reset email to ${user.email}:`, err.message || err);
+        }
 
         return { message: 'If a matching account is found, a reset link has been sent.' };
     }
