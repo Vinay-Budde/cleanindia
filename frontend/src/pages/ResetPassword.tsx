@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const ResetPassword = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const token = searchParams.get('token') || '';
+    const email = searchParams.get('email') || '';
 
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(!token ? 'error' : 'idle');
-    const [errorMessage, setErrorMessage] = useState(!token ? 'No reset token found. Please request a new password reset link.' : '');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(!email ? 'error' : 'idle');
+    const [errorMessage, setErrorMessage] = useState(!email ? 'No email address found. Please request password reset again.' : '');
 
     const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
     const passwordTooShort = newPassword.length > 0 && newPassword.length < 8;
@@ -37,7 +37,7 @@ const ResetPassword = () => {
             const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, newPassword }),
+                body: JSON.stringify({ email, newPassword }),
             });
 
             const data = await response.json();
@@ -45,7 +45,7 @@ const ResetPassword = () => {
             if (response.ok) {
                 setStatus('success');
             } else {
-                setErrorMessage(data?.message || 'Invalid or expired token. Please request a new reset link.');
+                setErrorMessage(data?.message || 'Failed to reset password. Please try again.');
                 setStatus('error');
             }
         } catch {
@@ -85,21 +85,18 @@ const ResetPassword = () => {
                         </button>
                     </div>
 
-                ) : !token || (status === 'error' && !token) ? (
-                    /* Invalid / Missing Token State */
+                ) : !email || (status === 'error' && !email) ? (
+                    /* Invalid / Missing Email State */
                     <div className="text-center py-4">
-                        <div className="mx-auto w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mb-4">
-                            <XCircle className="w-7 h-7 text-red-500" />
-                        </div>
-                        <h2 className="text-lg font-bold text-gray-900 mb-2">Invalid Link</h2>
+                        <h2 className="text-lg font-bold text-gray-900 mb-2">No Email Specified</h2>
                         <p className="text-gray-500 text-sm leading-relaxed mb-6">
-                            This password reset link is missing or invalid. Please request a new one.
+                            You must specify a valid email to reset your password.
                         </p>
                         <Link
                             to="/forgot-password"
                             className="w-full inline-block text-center py-2.5 rounded-lg text-white font-medium text-sm bg-[#115e59] hover:bg-[#0f4d49] transition-colors"
                         >
-                            Request New Link
+                            Go to Forgot Password
                         </Link>
                     </div>
 
@@ -109,7 +106,7 @@ const ResetPassword = () => {
                         <div className="mb-6">
                             <h2 className="text-xl font-bold text-gray-900 mb-1">Set New Password</h2>
                             <p className="text-gray-500 text-sm">
-                                Choose a strong password for your account.
+                                Reset password for <span className="font-semibold text-gray-700">{email}</span>.
                             </p>
                         </div>
 

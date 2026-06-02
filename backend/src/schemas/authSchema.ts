@@ -15,11 +15,6 @@ export const registerSchema = z.object({
     role: z.enum(['citizen', 'admin', 'worker']).optional()
 });
 
-export const verifyOtpSchema = z.object({
-    email: z.string().email('Invalid email format'),
-    otp: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^[0-9]+$/, 'OTP must be numeric'),
-});
-
 export const loginSchema = z.object({
     email: z.string().email('Invalid email format'),
     password: z.string().min(1, 'Password is required')
@@ -30,6 +25,6 @@ export const forgotPasswordSchema = z.object({
 });
 
 export const resetPasswordSchema = z.object({
-    token: z.string().min(1, 'Reset token is required'),
+    email: z.string().email('Invalid email format'),
     newPassword: strongPassword,
 });

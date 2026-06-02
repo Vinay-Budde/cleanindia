@@ -14,7 +14,6 @@ import authRoutes from './routes/auth';
 import notificationRoutes from './routes/notifications';
 import userRoutes from './routes/users';
 import { errorHandler } from './middleware/error';
-import { verifyEmailConnection } from './utils/emailService';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,9 +80,6 @@ const connectDB = async () => {
             socketTimeoutMS: 45000,
         });
         console.log('✅ Connected to MongoDB');
-
-        // Verify email (SMTP) connection
-        await verifyEmailConnection();
 
         app.listen(PORT, () => {
             console.log(`🚀 Server is running on port ${PORT}`);
