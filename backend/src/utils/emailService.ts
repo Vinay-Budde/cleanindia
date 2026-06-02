@@ -107,9 +107,10 @@ const send = async (mailOptions: nodemailer.SendMailOptions): Promise<void> => {
 };
 
 // ── Sender address helper ─────────────────────────────────────────────────
+// Recipients see: Clean India 🌿  (not the raw Gmail address)
 const from = (): string => {
     const addr = (process.env.EMAIL_FROM || process.env.EMAIL_USER || '').trim();
-    return `"Clean India" <${addr}>`;
+    return `"Clean India \uD83C\uDF3F" <${addr}>`;
 };
 
 // ── Shared HTML wrapper ───────────────────────────────────────────────────
@@ -177,7 +178,7 @@ export const sendOtpEmail = async (
     await send({
         from: from(),
         to,
-        subject: '🔐 Your Clean India Verification Code',
+        subject: '🔐 Clean India — Your Email Verification Code',
         html: emailWrapper(body),
     });
 };
@@ -217,7 +218,7 @@ export const sendPasswordResetEmail = async (
     await send({
         from: from(),
         to,
-        subject: '🔑 Reset Your Clean India Password',
+        subject: '🔑 Clean India — Reset Your Password',
         html: emailWrapper(body),
     });
 };
