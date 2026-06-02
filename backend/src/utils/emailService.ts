@@ -1,54 +1,89 @@
-// ── Email Service — Nodemailer + Resend SMTP ───────────────────────────────
-// Uses Resend's SMTP relay (smtp.resend.com:465).
-// Credentials: username = "resend", password = RESEND_API_KEY.
-// Free plan: 3 000 emails/month. Connection-pooled for fast repeated sends.
+// ── Email Service — Nodemailer + Gmail SMTP ────────────────────────────────
+// Uses Gmail's SMTP relay on port 587 (STARTTLS).
+// Requires a Gmail App Password (NOT your regular Gmail password).
+//
+// Setup (one-time):
+//   1. Visit https://myaccount.google.com/security
+//   2. Enable 2-Step Verification if not already enabled
+//   3. Search "App passwords" → Create one → label it "Clean India"
+//   4. Copy the 16-character password (no spaces)
+//   5. Add to Render env vars:
+//        EMAIL_USER = your-gmail@gmail.com
+//        EMAIL_PASS = xxxxxxxxxxxx  (16-char App Password)
+//        EMAIL_FROM = your-gmail@gmail.com
+// ─────────────────────────────────────────────────────────────────────────────
 
 import nodemailer from 'nodemailer';
 
-// ── Pooled transporter (created once, reused for every send) ──────────────
-// `pool: true` keeps persistent TCP+TLS connections alive so subsequent emails
-// skip the ~500 ms TLS handshake cost entirely.
+// ── Build a pooled transporter ────────────────────────────────────────────
+// Connection pooling keeps the TCP+TLS connection alive between sends —
+// eliminating the ~400 ms handshake cost on every email.
 const createTransporter = (): nodemailer.Transporter => {
-    const apiKey = (process.env.RESEND_API_KEY || '').trim();
+    const user = (process.env.EMAIL_USER || '').trim();
+    const pass = (process.env.EMAIL_PASS || '').trim();
 
     return nodemailer.createTransport({
-        pool: true,               // ← persistent connection pool
-        maxConnections: 5,        // up to 5 parallel SMTP connections
-        maxMessages: Infinity,    // never drop a connection after N mails
-        host: 'smtp.resend.com',
-        port: 465,
-        secure: true,
-        auth: {
-            user: 'resend',
-            pass: apiKey,
-        },
-        // Fail fast — surface problems immediately instead of hanging
-        connectionTimeout: 8_000,
-        greetingTimeout: 8_000,
-        socketTimeout: 10_000,
+        pool: true,
+        maxConnections: 5,
+        maxMessages: Infinity,
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,          // STARTTLS — Gmail requires this on port 587
+        auth: { user, pass },
+        tls: { rejectUnauthorized: true },
+        // Fail fast so errors are surfaced quickly
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
     });
 };
 
-// Single instance shared by the whole process
+// Single instance reused for every email
 const transporter: nodemailer.Transporter = createTransporter();
 
 // ── Startup health-check ──────────────────────────────────────────────────
 export const verifyEmailConnection = async (): Promise<void> => {
-    const apiKey = (process.env.RESEND_API_KEY || '').trim();
-    if (!apiKey) {
-        console.error('❌ EMAIL: RESEND_API_KEY is missing. Emails will not be sent.');
+    const user = (process.env.EMAIL_USER || '').trim();
+    const pass = (process.env.EMAIL_PASS || '').trim();
+
+    if (!user || !pass) {
+        console.error(
+            '❌ EMAIL: EMAIL_USER and/or EMAIL_PASS env vars are missing.\n' +
+            '   Add a Gmail App Password to Render:\n' +
+            '     EMAIL_USER = your-gmail@gmail.com\n' +
+            '     EMAIL_PASS = <16-char App Password>\n' +
+            '   See: https://myaccount.google.com/apppasswords'
+        );
         return;
     }
+
     try {
         await transporter.verify();
-        console.log('✅ EMAIL: Nodemailer + Resend SMTP pool ready — emails will be fast.');
+        console.log(`✅ EMAIL: Gmail SMTP authenticated as ${user} — email service ready.`);
     } catch (err: any) {
-        console.error('❌ EMAIL: SMTP pool verification failed:', err.message);
+        console.error('❌ EMAIL: Gmail SMTP verification failed:', err.message);
+        console.error(
+            '   Possible causes:\n' +
+            '   • Wrong EMAIL_PASS — must be a Gmail App Password, not your login password\n' +
+            '   • 2-Step Verification not enabled on the Gmail account\n' +
+            '   • Less secure app access might be disabled (use App Password instead)\n' +
+            '   See: https://support.google.com/accounts/answer/185833'
+        );
     }
 };
 
-// ── Internal send helper with 2 fast retries ─────────────────────────────
+// ── Internal send with retry ──────────────────────────────────────────────
 const send = async (mailOptions: nodemailer.SendMailOptions): Promise<void> => {
+    const user = (process.env.EMAIL_USER || '').trim();
+    const pass = (process.env.EMAIL_PASS || '').trim();
+
+    if (!user || !pass) {
+        throw new Error(
+            'EMAIL_USER / EMAIL_PASS not configured. ' +
+            'Add a Gmail App Password in Render environment variables.'
+        );
+    }
+
     const maxAttempts = 3;
     let lastError: any;
 
@@ -56,15 +91,14 @@ const send = async (mailOptions: nodemailer.SendMailOptions): Promise<void> => {
         try {
             const info = await transporter.sendMail(mailOptions);
             console.log(
-                `[EMAIL] ✅ Delivered to ${mailOptions.to} (attempt ${attempt}) — id: ${info.messageId}`
+                `[EMAIL] ✅ Sent to ${mailOptions.to} (attempt ${attempt}) — id: ${info.messageId}`
             );
             return;
         } catch (err: any) {
             lastError = err;
             console.error(`[EMAIL] ❌ Attempt ${attempt}/${maxAttempts} failed:`, err.message);
             if (attempt < maxAttempts) {
-                // Short exponential back-off: 500 ms, 1 000 ms
-                await new Promise(r => setTimeout(r, 500 * attempt));
+                await new Promise(r => setTimeout(r, 500 * attempt)); // 500 ms, 1 000 ms
             }
         }
     }
@@ -72,10 +106,13 @@ const send = async (mailOptions: nodemailer.SendMailOptions): Promise<void> => {
     throw lastError;
 };
 
-// ── Shared email boilerplate ──────────────────────────────────────────────
-const senderAddress = (): string =>
-    `"Clean India" <${(process.env.EMAIL_FROM || 'onboarding@resend.dev').trim()}>`;
+// ── Sender address helper ─────────────────────────────────────────────────
+const from = (): string => {
+    const addr = (process.env.EMAIL_FROM || process.env.EMAIL_USER || '').trim();
+    return `"Clean India" <${addr}>`;
+};
 
+// ── Shared HTML wrapper ───────────────────────────────────────────────────
 const emailWrapper = (bodyContent: string): string => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -87,7 +124,6 @@ const emailWrapper = (bodyContent: string): string => `<!DOCTYPE html>
     <tr><td align="center">
       <table width="480" cellpadding="0" cellspacing="0"
              style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.07);">
-        <!-- Header -->
         <tr>
           <td style="background:linear-gradient(135deg,#115e59,#0f766e);padding:28px 40px;text-align:center;">
             <div style="width:44px;height:44px;background:rgba(255,255,255,0.2);border-radius:50%;
@@ -98,9 +134,7 @@ const emailWrapper = (bodyContent: string): string => `<!DOCTYPE html>
               Smart City Civic Management Platform</p>
           </td>
         </tr>
-        <!-- Body -->
         <tr><td style="padding:32px 40px;">${bodyContent}</td></tr>
-        <!-- Footer -->
         <tr>
           <td style="background:#f9fafb;padding:18px 40px;text-align:center;border-top:1px solid #f3f4f6;">
             <p style="margin:0;color:#d1d5db;font-size:11px;">
@@ -141,7 +175,7 @@ export const sendOtpEmail = async (
       </p>`;
 
     await send({
-        from: senderAddress(),
+        from: from(),
         to,
         subject: '🔐 Your Clean India Verification Code',
         html: emailWrapper(body),
@@ -181,7 +215,7 @@ export const sendPasswordResetEmail = async (
       </p>`;
 
     await send({
-        from: senderAddress(),
+        from: from(),
         to,
         subject: '🔑 Reset Your Clean India Password',
         html: emailWrapper(body),
