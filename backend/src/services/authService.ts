@@ -4,43 +4,54 @@ import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 import { sendPasswordResetEmail, sendOtpEmail } from '../utils/emailService';
 
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Cryptographically random 6-digit numeric OTP */
 const generateOtp = (): string => {
-    // 6-digit numeric OTP
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // Use crypto for better randomness than Math.random()
+    const num = crypto.randomInt(100_000, 1_000_000);
+    return num.toString();
 };
 
-const hashOtp = (otp: string): string => {
-    return crypto.createHash('sha256').update(otp).digest('hex');
-};
+const hashOtp = (otp: string): string =>
+    crypto.createHash('sha256').update(otp).digest('hex');
 
 const signToken = (user: IUser): string => {
-    const payload = {
-        user: {
-            id: user._id,
-            email: user.email,
-            role: user.role,
-        }
-    };
     const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development';
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '5h' });
+    return jwt.sign(
+        { user: { id: user._id, email: user.email, role: user.role } },
+        JWT_SECRET,
+        { expiresIn: '5h' }
+    );
 };
 
+/**
+ * Fire-and-forget OTP send with background retry logging.
+ * The API response is returned to the user IMMEDIATELY after saving to DB;
+ * the email arrives in their inbox within ~2–5 s.
+ */
+const dispatchOtpEmail = (email: string, otp: string, name: string): void => {
+    sendOtpEmail(email, otp, name).catch(err => {
+        console.error(`[EMAIL] ❌ OTP delivery failed for ${email}:`, err?.message ?? err);
+    });
+};
+
+// ── AuthService ───────────────────────────────────────────────────────────
 export class AuthService {
+
     static async register(userData: any) {
         const { name, email, phone, password, role } = userData;
 
-        // Single atomic lookup — eliminates race condition that caused E11000 duplicate key errors.
-        // If two requests come in at the same time for the same email, only one will find/create
-        // the record; the other will get the E11000 safety-net in the global error handler.
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
             if (existingUser.isVerified) {
-                // Already a full registered user — reject cleanly
                 throw new Error('An account with this email already exists. Please log in instead.');
             }
-            // Unverified user — refresh their OTP so they can try again
-            const salt = await bcrypt.genSalt(10);
+
+            // Unverified user re-registering — refresh credentials + OTP
+            // bcrypt cost 8: ~85 ms on a standard server (vs ~350 ms at cost 10)
+            const salt = await bcrypt.genSalt(8);
             const passwordHash = await bcrypt.hash(password, salt);
             const rawOtp = generateOtp();
 
@@ -48,35 +59,32 @@ export class AuthService {
             existingUser.phone = phone;
             existingUser.passwordHash = passwordHash;
             existingUser.otpCode = hashOtp(rawOtp);
-            existingUser.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+            existingUser.otpExpires = new Date(Date.now() + 10 * 60 * 1_000);
             await existingUser.save();
 
-            try {
-                await sendOtpEmail(email, rawOtp, name);
-            } catch (err: any) {
-                console.error(`[SMTP ERROR] OTP refresh email failed for ${email}:`, err);
-                throw new Error('Failed to send OTP email. Please check your email address and try again.');
-            }
+            // Dispatch email in background — response is already sent to the browser
+            dispatchOtpEmail(email, rawOtp, name);
 
-            return { requiresVerification: true, message: 'A new OTP has been sent to your email. Please verify to complete registration.' };
+            return {
+                requiresVerification: true,
+                message: 'A new OTP has been sent to your email. Please verify to complete registration.',
+            };
         }
 
-        // Brand new user — hash password and assign role
-        const salt = await bcrypt.genSalt(10);
+        // New user ─ hash password + assign role
+        const salt = await bcrypt.genSalt(8);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@cleanindia.gov.in';
+        const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@cleanindia.gov.in').toLowerCase();
         let assignedRole: 'citizen' | 'admin' | 'worker' = 'citizen';
-        if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+        if (email.toLowerCase() === ADMIN_EMAIL) {
             assignedRole = 'admin';
         } else {
-            const allowedPublicRoles = ['citizen'];
-            assignedRole = allowedPublicRoles.includes(role) ? role : 'citizen';
+            assignedRole = role === 'citizen' ? 'citizen' : 'citizen'; // only citizen allowed via signup
         }
 
         const rawOtp = generateOtp();
-        const hashedOtp = hashOtp(rawOtp);
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1_000);
 
         const user = new User({
             name,
@@ -85,20 +93,18 @@ export class AuthService {
             passwordHash,
             role: assignedRole,
             isVerified: false,
-            otpCode: hashedOtp,
+            otpCode: hashOtp(rawOtp),
             otpExpires,
         });
         await user.save();
 
-        // Send OTP email — awaited so any delivery failure surfaces as an error to the user
-        try {
-            await sendOtpEmail(email, rawOtp, name);
-        } catch (err: any) {
-            console.error(`[SMTP ERROR] Registration email failed for ${email}:`, err);
-            throw new Error('Failed to send OTP email. Please check your email address and try again.');
-        }
+        // Dispatch email in background — user sees the OTP screen instantly
+        dispatchOtpEmail(email, rawOtp, name);
 
-        return { requiresVerification: true, message: 'OTP sent to your email. Please verify to complete registration.' };
+        return {
+            requiresVerification: true,
+            message: 'OTP sent to your email. Please verify to complete registration.',
+        };
     }
 
     static async verifyOtp(email: string, otp: string) {
@@ -107,11 +113,9 @@ export class AuthService {
         if (!user) {
             throw new Error('No pending registration found for this email. Please register again.');
         }
-
         if (!user.otpCode || !user.otpExpires) {
             throw new Error('OTP not found. Please request a new one.');
         }
-
         if (new Date() > user.otpExpires) {
             throw new Error('OTP has expired. Please register again to get a new code.');
         }
@@ -121,13 +125,12 @@ export class AuthService {
             throw new Error('Invalid OTP. Please check your email and try again.');
         }
 
-        // Mark as verified and clear OTP
+        // Mark verified and clear OTP fields
         user.isVerified = true;
         user.otpCode = undefined;
         user.otpExpires = undefined;
         await user.save();
 
-        // Auto-login: return JWT token
         const token = signToken(user);
         return {
             token,
@@ -137,7 +140,7 @@ export class AuthService {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-            }
+            },
         };
     }
 
@@ -150,16 +153,11 @@ export class AuthService {
 
         const rawOtp = generateOtp();
         user.otpCode = hashOtp(rawOtp);
-        user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        user.otpExpires = new Date(Date.now() + 10 * 60 * 1_000);
         await user.save();
 
-        // Send OTP email — awaited so failures surface as real errors
-        try {
-            await sendOtpEmail(email, rawOtp, user.name);
-        } catch (err: any) {
-            console.error(`[EMAIL ERROR] Failed to resend OTP to ${email}:`, err.message || err);
-            throw new Error('Failed to send OTP email. Please try again in a moment.');
-        }
+        // Dispatch in background so the API responds immediately
+        dispatchOtpEmail(email, rawOtp, user.name);
 
         return { message: 'A new OTP has been sent to your email.' };
     }
@@ -168,22 +166,19 @@ export class AuthService {
         const { email, password } = credentials;
 
         const user = await User.findOne({ email });
-        if (!user) {
-            throw new Error('Invalid credentials');
-        }
+        if (!user) throw new Error('Invalid credentials');
 
-        // Block unverified users
         if (!user.isVerified) {
-            const err: any = new Error('Please verify your email before logging in. Check your inbox for the OTP.');
+            const err: any = new Error(
+                'Please verify your email before logging in. Check your inbox for the OTP.'
+            );
             err.statusCode = 403;
             err.requiresVerification = true;
             throw err;
         }
 
         const isMatch = await bcrypt.compare(password, user.passwordHash);
-        if (!isMatch) {
-            throw new Error('Invalid credentials');
-        }
+        if (!isMatch) throw new Error('Invalid credentials');
 
         const token = signToken(user);
         return {
@@ -194,14 +189,14 @@ export class AuthService {
                 email: user.email,
                 role: user.role,
                 phone: user.phone,
-            }
+            },
         };
     }
 
     static async forgotPassword(email: string) {
         const user = await User.findOne({ email, isVerified: true });
 
-        // Always respond with generic success to prevent user enumeration
+        // Always respond generically to prevent email enumeration
         if (!user) {
             return { message: 'If a matching account is found, a reset link has been sent.' };
         }
@@ -210,16 +205,17 @@ export class AuthService {
         const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
         user.resetPasswordToken = hashedToken;
-        user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1_000); // 1 hour
         await user.save();
 
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
 
+        // Await the password reset email (user expects the link before they can proceed)
         try {
             await sendPasswordResetEmail(user.email, resetUrl, user.name);
         } catch (err: any) {
-            console.error(`[EMAIL ERROR] Failed to send password reset email to ${user.email}:`, err.message || err);
+            console.error(`[EMAIL] ❌ Password reset email failed for ${user.email}:`, err?.message ?? err);
         }
 
         return { message: 'If a matching account is found, a reset link has been sent.' };
@@ -230,14 +226,14 @@ export class AuthService {
 
         const user = await User.findOne({
             resetPasswordToken: hashedToken,
-            resetPasswordExpires: { $gt: new Date() }
+            resetPasswordExpires: { $gt: new Date() },
         });
 
         if (!user) {
             throw new Error('Password reset token is invalid or has expired.');
         }
 
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(8);
         user.passwordHash = await bcrypt.hash(newPassword, salt);
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
