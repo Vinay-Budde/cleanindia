@@ -43,9 +43,9 @@ const MyComplaints = () => {
     useEffect(() => {
         const fetchComplaints = async () => {
             try {
-                // Backend filters by role automatically via JWT:
-                // citizens receive only their own complaints
-                const data = await api.get<ComplaintData[]>('/api/complaints');
+                // Pass reportedBy filter to fetch only the citizen's own complaints
+                const userEmail = localStorage.getItem('userEmail') || '';
+                const data = await api.get<ComplaintData[]>(`/api/complaints?reportedBy=${encodeURIComponent(userEmail)}`);
                 setComplaints(data);
             } catch (error: any) {
                 console.error('Failed to fetch complaints:', error);

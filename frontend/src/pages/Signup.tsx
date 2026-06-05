@@ -49,18 +49,17 @@ const Signup = () => {
             return;
         }
         setSubmitting(true);
-        const tid = toast.loading('Creating account…');
+        const tid = toast.loading(
+            <span>
+                Creating account…<br />
+                <span className="text-[10px] opacity-85 block mt-0.5 font-normal">Note: Server cold-starts may take up to 1 minute.</span>
+            </span>
+        );
         try {
-            const data = await api.post<{ token: string; user: any }>('/api/auth/register', { name, phone, email, password });
+            await api.post<{ token: string; user: any }>('/api/auth/register', { name, phone, email, password });
             
-            localStorage.setItem('token',     data.token);
-            localStorage.setItem('userRole',  data.user.role);
-            localStorage.setItem('userName',  data.user.name);
-            localStorage.setItem('userEmail', data.user.email);
-            localStorage.setItem('userPhone', data.user.phone || '');
-            
-            toast.success('Account created! Welcome to Clean India 🎉', { id: tid });
-            navigate(location.state?.from || '/dashboard');
+            toast.success('Account created successfully! Please sign in with your credentials. 🎉', { id: tid });
+            navigate('/login', { state: location.state });
         } catch (err: any) {
             toast.error(err.message || 'Registration failed', { id: tid });
         } finally {
@@ -218,6 +217,11 @@ const Signup = () => {
                     >
                         {submitting ? <><Spinner /> Creating Account…</> : 'Create Account'}
                     </button>
+
+                    {/* Cold start note */}
+                    <p className="text-[11px] text-gray-400 text-center leading-relaxed mt-2.5">
+                        ℹ️ Note: If signup is slow, the backend server might be waking up from a brief period of inactivity. This is normal and will take about a minute.
+                    </p>
                 </form>
 
                 <p className="text-center text-xs text-gray-500 mt-6">
