@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 const Login = () => {
     const location = useLocation();
     const isAdminPath = location.pathname.startsWith('/admin');
-    const [role] = useState<'citizen' | 'admin'>(isAdminPath ? 'admin' : 'citizen');
+    const [role, setRole] = useState<'citizen' | 'admin'>(isAdminPath ? 'admin' : 'citizen');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
@@ -76,6 +76,24 @@ const Login = () => {
                     <p className="text-gray-500 text-sm mt-1">{role === 'admin' ? 'Portal management access' : 'Sign in to access your account'}</p>
                 </div>
 
+                {/* Role Toggle */}
+                <div className="flex p-1 mb-6 bg-gray-100 rounded-lg">
+                    <button
+                        type="button"
+                        onClick={() => setRole('citizen')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${role === 'citizen' ? 'bg-white text-[#115e59] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Citizen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setRole('admin')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${role === 'admin' ? 'bg-white text-[#ea580c] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Admin
+                    </button>
+                </div>
+
                 {/* Form */}
                 <form className="space-y-4" onSubmit={handleLogin} autoComplete="off">
                     <div>
@@ -140,7 +158,7 @@ const Login = () => {
                 </form>
 
                 <p className="text-center text-xs text-gray-500 mt-6">
-                    {!isAdminPath && (
+                    {role !== 'admin' && (
                         <>
                             Don't have an account?{' '}
                             <Link to="/signup" state={location.state} className="text-[#115e59] font-medium hover:underline">
@@ -148,7 +166,7 @@ const Login = () => {
                             </Link>
                         </>
                     )}
-                    {isAdminPath && (
+                    {role === 'admin' && (
                         <span className="text-gray-400">Admin accounts are managed by the system.</span>
                     )}
                 </p>
