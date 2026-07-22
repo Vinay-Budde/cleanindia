@@ -2,6 +2,7 @@ import { Complaint } from '../models/Complaint';
 import { Notification } from '../models/Notification';
 import mongoose from 'mongoose';
 import { uploadToCloudinary } from '../utils/cloudinary';
+import { MunicipalityService } from './municipalityService';
 
 export class ComplaintService {
     private static calculatePriority(severity: number, traffic: number, population: number): { score: number, label: 'low' | 'medium' | 'high' | 'critical' } {
@@ -67,22 +68,53 @@ export class ComplaintService {
 
         const savedComplaint = await newComplaint.save();
 
+        // --- Municipality auto-assignment ---
+        let assignedMunicipalityName = '';
+        if (latitude && longitude) {
+            try {
+                const assignment = await MunicipalityService.assignMunicipality(
+                    parseFloat(longitude),
+                    parseFloat(latitude)
+                );
+                if (assignment.assignmentMethod !== 'none') {
+                    savedComplaint.assignedMunicipality = new mongoose.Types.ObjectId(assignment.municipalityId) as any;
+                    savedComplaint.assignedAt = new Date();
+                    savedComplaint.assignmentMethod = assignment.assignmentMethod as any;
+                    await savedComplaint.save();
+                    assignedMunicipalityName = assignment.municipalityName;
+                }
+            } catch (err) {
+                // Non-fatal: log but do not block complaint submission
+                console.error('Municipality assignment failed:', err);
+            }
+        }
+
         // Notifications
+        const locationLabel = assignedMunicipalityName
+            ? `${location} (assigned to ${assignedMunicipalityName})`
+            : location;
+
         await new Notification({
             recipient: 'admin',
-            message: `A new issue "${title}" has been reported in ${location}.`,
+            message: `A new issue "${title}" has been reported in ${locationLabel}.`,
             type: 'info'
         }).save();
 
         if (reportedBy && reportedBy !== 'Anonymous') {
+            const citizenMsg = assignedMunicipalityName
+                ? `You have successfully raised the complaint "${title}". It has been assigned to ${assignedMunicipalityName}.`
+                : `You have successfully raised the complaint "${title}".`;
             await new Notification({
                 recipient: reportedBy,
-                message: `You have successfully raised the complaint "${title}".`,
+                message: citizenMsg,
                 type: 'success'
             }).save();
         }
 
-        return savedComplaint;
+        // Return the complaint with assignedMunicipalityName for the success response
+        const result: any = savedComplaint.toObject();
+        result.assignedMunicipalityName = assignedMunicipalityName;
+        return result;
     }
 
     static async getAllComplaints(filters: any, user?: { email: string; role: string }) {

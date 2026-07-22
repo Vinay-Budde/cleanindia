@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Activity, CheckCircle, AlertCircle, Timer, Users, BarChart2, MapPin, PieChart as PieChartIcon } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from 'recharts';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polygon } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -131,6 +131,14 @@ const AdminDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
     const [activePriorities, setActivePriorities] = useState<Set<string>>(new Set(['critical', 'high', 'medium', 'low']));
+    const [municipalities, setMunicipalities] = useState<any[]>([]);
+    const [muniStats, setMuniStats] = useState<any[]>([]);
+    const [mapTab, setMapTab] = useState<'complaints' | 'jurisdictions'>('complaints');
+
+    const MUNI_COLORS = [
+        '#6366f1', '#10b981', '#f97316', '#3b82f6', '#ec4899',
+        '#14b8a6', '#8b5cf6', '#eab308', '#ef4444', '#06b6d4',
+    ];
 
     useEffect(() => {
         const fetchComplaints = async () => {
@@ -246,6 +254,23 @@ const AdminDashboard = () => {
         };
 
         fetchComplaints();
+    }, []);
+
+    // Fetch municipality map data
+    useEffect(() => {
+        const fetchMunis = async () => {
+            try {
+                const [mapData, statsData] = await Promise.all([
+                    api.get<any[]>('/api/municipalities/map'),
+                    api.get<any[]>('/api/municipalities/stats'),
+                ]);
+                setMunicipalities(mapData || []);
+                setMuniStats(statsData || []);
+            } catch {
+                // Non-fatal — municipality data may not exist yet
+            }
+        };
+        fetchMunis();
     }, []);
     return (
         <Layout type="admin">
@@ -374,15 +399,27 @@ const AdminDashboard = () => {
                             <h3 style={{fontWeight:700,color:'#111827',marginBottom:2}}>Geospatial Issue Analytics</h3>
                             <p style={{fontSize:12,color:'#9ca3af'}}>Live complaint visualization by priority</p>
                         </div>
-                        <div style={{background:'#f3f4f6',padding:4,borderRadius:10,display:'flex'}}>
-                            {(['markers','heatmap'] as const).map(m=>(
-                                <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 18px',borderRadius:8,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',transition:'all 0.2s',background:viewMode===m?'white':'transparent',color:viewMode===m?'#115e59':'#9ca3af',boxShadow:viewMode===m?'0 2px 8px rgba(0,0,0,0.1)':'none'}}>
-                                    {m.charAt(0).toUpperCase()+m.slice(1)}
-                                </button>
-                            ))}
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {/* Map tab toggle */}
+                            <div style={{background:'#f3f4f6',padding:4,borderRadius:10,display:'flex'}}>
+                                {(['complaints','jurisdictions'] as const).map(t=>(
+                                    <button key={t} onClick={()=>setMapTab(t)} style={{padding:'6px 16px',borderRadius:8,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',transition:'all 0.2s',background:mapTab===t?'white':'transparent',color:mapTab===t?'#115e59':'#9ca3af',boxShadow:mapTab===t?'0 2px 8px rgba(0,0,0,0.1)':'none'}}>
+                                        {t==='complaints'?'Complaints':'Jurisdictions'}
+                                    </button>
+                                ))}
+                            </div>
+                            {mapTab==='complaints'&&(
+                                <div style={{background:'#f3f4f6',padding:4,borderRadius:10,display:'flex'}}>
+                                    {(['markers','heatmap'] as const).map(m=>(
+                                        <button key={m} onClick={()=>setViewMode(m)} style={{padding:'6px 18px',borderRadius:8,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',transition:'all 0.2s',background:viewMode===m?'white':'transparent',color:viewMode===m?'#115e59':'#9ca3af',boxShadow:viewMode===m?'0 2px 8px rgba(0,0,0,0.1)':'none'}}>
+                                            {m.charAt(0).toUpperCase()+m.slice(1)}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
-                    {viewMode==='markers'&&(
+                    {mapTab==='complaints'&&viewMode==='markers'&&(
                         <div className="flex flex-wrap gap-2 mb-4">
                             <span style={{fontSize:11,fontWeight:600,color:'#9ca3af',marginRight:4,alignSelf:'center'}}>Filter:</span>
                             {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p=>{
@@ -398,7 +435,37 @@ const AdminDashboard = () => {
                         {isLoading?<Skeleton width="100%" height="100%"/>:(
                             <MapContainer center={[20.5937,78.9629]} zoom={5} style={{height:'100%',width:'100%'}} zoomControl>
                                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CARTO' maxZoom={19}/>
-                                {viewMode==='markers'?(
+                                {mapTab==='jurisdictions'?(
+                                    // Jurisdiction boundary polygons
+                                    <>
+                                        {municipalities.filter((mc:any)=>mc.jurisdictionBoundary).map((mc:any,idx:number)=>{
+                                            const color=MUNI_COLORS[idx%MUNI_COLORS.length];
+                                            const positions:any[]=mc.jurisdictionBoundary.coordinates[0].map(
+                                                ([lng,lat]:[number,number])=>[lat,lng]
+                                            );
+                                            const stat=muniStats.find((s:any)=>s._id?.toString()===mc._id?.toString());
+                                            return (
+                                                <Polygon key={mc._id} positions={positions} pathOptions={{color,fillColor:color,fillOpacity:0.15,weight:2.5}}>
+                                                    <Popup minWidth={220}>
+                                                        <div style={{fontFamily:'system-ui',minWidth:220}}>
+                                                            <div style={{background:color,padding:'10px 14px',margin:'-8px -12px 10px',borderRadius:'8px 8px 0 0'}}>
+                                                                <div style={{color:'#fff',fontWeight:700,fontSize:14}}>{mc.name}</div>
+                                                                <div style={{color:'rgba(255,255,255,0.8)',fontSize:11}}>{mc.district}, {mc.state}</div>
+                                                            </div>
+                                                            <div style={{fontSize:12,display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px 12px',padding:'0 2px 4px'}}>
+                                                                {mc.contactEmail&&<div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Email</div><div style={{color:'#374151'}}>{mc.contactEmail}</div></div>}
+                                                                {mc.phone&&<div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Phone</div><div style={{color:'#374151'}}>{mc.phone}</div></div>}
+                                                                <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Total Complaints</div><div style={{color:'#374151',fontWeight:700}}>{stat?.total??0}</div></div>
+                                                                <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Resolved</div><div style={{color:'#10b981',fontWeight:700}}>{stat?.resolved??0}</div></div>
+                                                                <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Critical</div><div style={{color:'#ef4444',fontWeight:700}}>{stat?.critical??0}</div></div>
+                                                            </div>
+                                                        </div>
+                                                    </Popup>
+                                                </Polygon>
+                                            );
+                                        })}
+                                    </>
+                                ):viewMode==='markers'?(
                                     <MarkerClusterGroup chunkedLoading showCoverageOnHover={false} maxClusterRadius={50}>
                                         {complaints.filter((c:any)=>c.latitude&&c.longitude&&activePriorities.has(c.priority)).map((c:any)=>{
                                             const cfg=PRIORITY_CONFIG[c.priority as Priority]||PRIORITY_CONFIG.low;
@@ -423,7 +490,7 @@ const AdminDashboard = () => {
                                         })}
                                     </MarkerClusterGroup>
                                 ):<HeatmapLayer points={complaints.filter((c:any)=>c.latitude&&c.longitude).map((c:any)=>[c.latitude,c.longitude,c.priority==='critical'?1:c.priority==='high'?0.75:c.priority==='medium'?0.5:0.3])}/>}
-                                {viewMode==='markers'&&(
+                                {mapTab==='complaints'&&viewMode==='markers'&&(
                                     <div style={{position:'absolute',bottom:20,left:12,zIndex:1000,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(8px)',borderRadius:10,padding:'10px 14px',boxShadow:'0 4px 16px rgba(0,0,0,0.12)',border:'1px solid #e5e7eb',minWidth:110}}>
                                         <div style={{fontSize:9,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Priority</div>
                                         {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p=>(
@@ -435,11 +502,25 @@ const AdminDashboard = () => {
                                         ))}
                                     </div>
                                 )}
+                                {mapTab==='jurisdictions'&&municipalities.length>0&&(
+                                    <div style={{position:'absolute',bottom:20,left:12,zIndex:1000,background:'rgba(255,255,255,0.95)',backdropFilter:'blur(8px)',borderRadius:10,padding:'10px 14px',boxShadow:'0 4px 16px rgba(0,0,0,0.12)',border:'1px solid #e5e7eb',maxWidth:180}}>
+                                        <div style={{fontSize:9,fontWeight:700,color:'#9ca3af',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Jurisdictions</div>
+                                        {municipalities.filter((mc:any)=>mc.jurisdictionBoundary).slice(0,8).map((mc:any,idx:number)=>(
+                                            <div key={mc._id} style={{display:'flex',alignItems:'center',gap:7,marginBottom:4}}>
+                                                <span style={{width:8,height:8,borderRadius:'50%',background:MUNI_COLORS[idx%MUNI_COLORS.length],flexShrink:0}}/>
+                                                <span style={{fontSize:11,fontWeight:600,color:'#374151',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{mc.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </MapContainer>
                         )}
                     </div>
-                    {!isLoading&&complaints.filter((c:any)=>!c.latitude||!c.longitude).length>0&&(
+                    {!isLoading&&mapTab==='complaints'&&complaints.filter((c:any)=>!c.latitude||!c.longitude).length>0&&(
                         <p style={{fontSize:11,color:'#9ca3af',marginTop:8,display:'flex',alignItems:'center',gap:4}}><AlertCircle style={{width:12,height:12}}/>{complaints.filter((c:any)=>!c.latitude||!c.longitude).length} complaint(s) without GPS not shown.</p>
+                    )}
+                    {!isLoading&&mapTab==='jurisdictions'&&municipalities.filter((mc:any)=>mc.jurisdictionBoundary).length===0&&(
+                        <p style={{fontSize:12,color:'#9ca3af',marginTop:8,textAlign:'center'}}>No jurisdiction boundaries configured yet. Go to <a href="/admin/municipalities" style={{color:'#115e59',fontWeight:600}}>Municipality Manager</a> to add boundaries.</p>
                     )}
                 </div>
 

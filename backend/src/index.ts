@@ -13,6 +13,7 @@ import complaintRoutes from './routes/complaints';
 import authRoutes from './routes/auth';
 import notificationRoutes from './routes/notifications';
 import userRoutes from './routes/users';
+import municipalityRoutes from './routes/municipalities';
 import { errorHandler } from './middleware/error';
 
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/municipalities', municipalityRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {

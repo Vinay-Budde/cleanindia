@@ -28,6 +28,10 @@ export interface IComplaint extends Document {
     }>;
     resolvedAt?: Date;
     resolvedImageUrl?: string;
+    // Municipality assignment fields
+    assignedMunicipality?: mongoose.Types.ObjectId;
+    assignedAt?: Date;
+    assignmentMethod?: 'polygon' | 'nearest' | 'manual' | 'none';
 }
 
 const complaintSchema = new Schema<IComplaint>({
@@ -61,7 +65,14 @@ const complaintSchema = new Schema<IComplaint>({
         comment: { type: String }
     }],
     resolvedAt: { type: Date },
-    resolvedImageUrl: { type: String }
+    resolvedImageUrl: { type: String },
+    // Municipality assignment
+    assignedMunicipality: { type: Schema.Types.ObjectId, ref: 'MunicipalCorporation' },
+    assignedAt: { type: Date },
+    assignmentMethod: {
+        type: String,
+        enum: ['polygon', 'nearest', 'manual', 'none'],
+    }
 });
 
 export const Complaint = mongoose.model<IComplaint>('Complaint', complaintSchema);

@@ -24,6 +24,7 @@ const ReportIssue = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiConfidence, setAiConfidence] = useState<number | null>(null);
+    const [assignedMunicipalityName, setAssignedMunicipalityName] = useState<string | null>(null);
 
     const analyzeImage = async (file: File) => {
         setIsAnalyzing(true);
@@ -138,10 +139,18 @@ const ReportIssue = () => {
                 payload.append('image', selectedFile);
             }
 
-            await api.post('/api/complaints', payload);
+            const result = await api.post('/api/complaints', payload);
 
-            toast.success('Complaint submitted successfully!', { id: tid });
-            navigate('/dashboard');
+            // Show municipality assignment success banner
+            const muniName: string = (result as any)?.assignedMunicipalityName || '';
+            if (muniName) {
+                setAssignedMunicipalityName(muniName);
+                toast.success(`Assigned to ${muniName}`, { id: tid, duration: 4000 });
+                setTimeout(() => navigate('/dashboard'), 3000);
+            } else {
+                toast.success('Complaint submitted successfully!', { id: tid });
+                navigate('/dashboard');
+            }
         } catch (error: any) {
             console.error('Error submitting complaint:', error);
             toast.error(error.message || 'Failed to submit complaint', { id: tid });
@@ -158,6 +167,24 @@ const ReportIssue = () => {
                     <h1 className="text-3xl font-bold text-[#115e59] mb-2">Report a Civic Issue</h1>
                     <p className="text-gray-500">Help us maintain a clean and safe city by reporting issues in your area</p>
                 </div>
+
+                {/* Municipality Assignment Success Banner */}
+                {assignedMunicipalityName && (
+                    <div style={{ background: 'linear-gradient(135deg,#115e59,#0f766e)', borderRadius: 14, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 14, color: 'white', boxShadow: '0 8px 24px rgba(17,94,89,0.3)' }}>
+                        <div style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.2)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <CheckCircle className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 800, fontSize: 16 }}>Complaint Auto-Assigned!</div>
+                            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                                Your complaint has been assigned to <strong>{assignedMunicipalityName}</strong> based on your GPS location.
+                            </div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700 }}>
+                            Redirecting...
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
                     <h2 className="text-lg font-bold text-gray-900 mb-1">Complaint Details</h2>

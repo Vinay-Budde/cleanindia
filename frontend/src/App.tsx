@@ -8,6 +8,7 @@ import MyComplaints from './pages/MyComplaints';
 import Leaderboard from './pages/Leaderboard';
 import AdminDashboard from './pages/AdminDashboard';
 import ManageComplaints from './pages/ManageComplaints';
+import MunicipalityManager from './pages/MunicipalityManager';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import ForgotPassword from './pages/ForgotPassword';
@@ -45,6 +46,7 @@ function App() {
         {/* Admin-only routes */}
         <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/complaints" element={<ProtectedRoute role="admin"><ManageComplaints /></ProtectedRoute>} />
+        <Route path="/admin/municipalities" element={<ProtectedRoute role="admin"><MunicipalityManager /></ProtectedRoute>} />
 
         {/* Citizen-only routes (ProtectedRoute without role prop will redirect admins) */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
