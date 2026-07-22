@@ -1,20 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Download, User as UserIcon, Camera, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User as UserIcon, X, CheckCircle, Clock, MapPin, AlertTriangle } from 'lucide-react';
 import Layout from '../components/Layout';
 import toast from 'react-hot-toast';
 import { api } from '../utils/api';
-import Skeleton from '../components/Skeleton';
 
 interface ComplaintData {
     _id: string;
     complaintId: string;
     title: string;
     category: string;
-    priority: 'low' | 'medium' | 'high' | 'critical';
-    severity?: number;
-    trafficLevel?: number;
-    populationDensity?: number;
-    priorityScore?: number;
+    priority: 'low' | 'medium' | 'high' | 'critical' | 'emergency';
     location: string;
     description: string;
     status: string;
@@ -22,9 +17,15 @@ interface ComplaintData {
     reportedAt: string;
     aiScore?: number;
     assignedTo?: string;
+    assignedMunicipality?: any;
+    assignedOfficer?: any;
     imageUrl?: string;
     resolvedImageUrl?: string;
+    slaDeadline?: string;
+    slaBreached?: boolean;
 }
+
+const STATUSES = ['submitted', 'verified', 'assigned', 'accepted', 'in_progress', 'waiting_citizen_review', 'resolved', 'closed', 'reopened'];
 
 const getImageUrl = (url?: string) => {
     if (!url) return undefined;
@@ -34,438 +35,257 @@ const getImageUrl = (url?: string) => {
     return `${baseUrl}${normalizedUrl}`;
 };
 
-const ManageComplaints = () => {
-    const [complaintsData, setComplaintsData] = useState<ComplaintData[]>([]);
-    const [userRole, setUserRole] = useState<string | null>(null);
+export default function ManageComplaints() {
+    const [complaints, setComplaints] = useState<ComplaintData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Filtering state
-    const [searchQuery, setSearchQuery] = useState('');
+    const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [priorityFilter, setPriorityFilter] = useState('all');
+
+    const [selectedComplaint, setSelectedComplaint] = useState<ComplaintData | null>(null);
+    const [timeline, setTimeline] = useState<any[]>([]);
+    const [timelineLoading, setTimelineLoading] = useState(false);
+    
+    // Status update state
+    const [resolveModalOpen, setResolveModalOpen] = useState(false);
+    const [resolvingId, setResolvingId] = useState<string | null>(null);
+    const [resolvedImage, setResolvedImage] = useState<File | null>(null);
 
     useEffect(() => {
-        const role = localStorage.getItem('userRole');
-        setUserRole(role);
-
-        const fetchComplaints = async () => {
-            setIsLoading(true);
-            try {
-                let queryParam = '';
-                if (role === 'worker') {
-                    const userName = localStorage.getItem('userName');
-                    if (userName) queryParam = `?assignedTo=${encodeURIComponent(userName)}`;
-                }
-
-                const data = await api.get<ComplaintData[]>(`/api/complaints${queryParam}`);
-                setComplaintsData(data);
-            } catch (error: any) {
-                console.error('Failed to fetch complaints:', error);
-                toast.error(error.message || 'Failed to load complaints');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchComplaints();
     }, []);
 
-    // Resolve Modal State
-    const [resolveModalOpen, setResolveModalOpen] = useState(false);
-    const [resolvingId, setResolvingId] = useState<string | null>(null);
-    const [resolvedImagePreview, setResolvedImagePreview] = useState<string | null>(null);
-    const [resolvedImageFile, setResolvedImageFile] = useState<File | null>(null);
-    const resolveFileInputRef = useRef<HTMLInputElement>(null);
-
-    const openResolveModal = (id: string) => {
-        setResolvingId(id);
-        setResolvedImagePreview(null);
-        setResolvedImageFile(null);
-        setResolveModalOpen(true);
-    };
-
-    const handleResolvedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setResolvedImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setResolvedImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    const confirmResolve = async () => {
-        if (!resolvingId) return;
-        setResolveModalOpen(false);
-        const tid = toast.loading('Updating status...');
-
+    const fetchComplaints = async () => {
+        setIsLoading(true);
         try {
-            const formData = new FormData();
-            formData.append('status', 'resolved');
-            if (resolvedImageFile) {
-                formData.append('resolvedImage', resolvedImageFile);
-            }
-
-            const updatedComplaint = await api.patch(`/api/complaints/${resolvingId}/status`, formData);
-            setComplaintsData(prev => prev.map(c => c._id === resolvingId ? updatedComplaint : c));
-            toast.success('Complaint successfully marked as resolved!', { id: tid });
-        } catch (error: any) {
-            console.error('Failed to resolve complaint:', error);
-            toast.error(error.message || 'Failed to resolve complaint', { id: tid });
+            const data: any = await api.get('/api/complaints');
+            setComplaints(data.complaints || data);
+        } catch (e: any) {
+            toast.error(e.message || 'Failed to load complaints');
+        } finally {
+            setIsLoading(false);
         }
-    };
-
-    const handleResolve = (id: string) => {
-        openResolveModal(id);
     };
 
     const handleUpdateStatus = async (id: string, newStatus: string) => {
         if (newStatus === 'resolved') {
-            openResolveModal(id);
-        } else {
-            const tid = toast.loading(`Updating status to ${newStatus}...`);
-            try {
-                const updatedComplaint = await api.patch(`/api/complaints/${id}/status`, { status: newStatus });
-                setComplaintsData(prev => prev.map(c => c._id === id ? updatedComplaint : c));
-                toast.success(`Complaint status securely updated to ${newStatus}.`, { id: tid });
-            } catch (error: any) {
-                console.error('Failed to update status:', error);
-                toast.error(error.message || 'Failed to update status', { id: tid });
-            }
+            setResolvingId(id);
+            setResolveModalOpen(true);
+            return;
         }
-    };
-
-    const handleAssign = async (id: string, assignee: string) => {
-        const tid = toast.loading(`Assigning to ${assignee}...`);
+        const tid = toast.loading(`Updating status to ${newStatus}...`);
         try {
-            // Check if backend has a specific /assign route or if we should use /status update?
-            // Existing code used /api/complaints/${id}/assign. Let's assume it exists or refactor to use PATCH /status if needed.
-            // But let's stick to the existing route for now if it exists, otherwise I'll need to check backend routes.
-            await api.patch(`/api/complaints/${id}/assign`, { assignedTo: assignee });
-            setComplaintsData(prev => prev.map(c =>
-                c._id === id ? { ...c, assignedTo: assignee } : c
-            ));
-            toast.success(`Complaint assigned to ${assignee}`, { id: tid });
-        } catch (error: any) {
-            console.error('Failed to assign complaint:', error);
-            toast.error(error.message || 'Failed to assign complaint', { id: tid });
+            const updated = await api.patch(`/api/complaints/${id}/status`, { status: newStatus });
+            setComplaints(prev => prev.map(c => c._id === id ? updated : c));
+            if (selectedComplaint?._id === id) setSelectedComplaint(updated);
+            toast.success('Status updated', { id: tid });
+        } catch (e: any) {
+            toast.error(e.message || 'Update failed', { id: tid });
         }
     };
 
-    // Derived filtered data
-    const filteredComplaints = complaintsData.filter((complaint) => {
-        const matchesSearch =
-            complaint.complaintId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            complaint.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const handleResolve = async () => {
+        if (!resolvingId) return;
+        const tid = toast.loading('Resolving complaint...');
+        try {
+            const formData = new FormData();
+            formData.append('status', 'resolved');
+            if (resolvedImage) formData.append('resolvedImage', resolvedImage);
+            
+            const updated = await api.patch(`/api/complaints/${resolvingId}/status`, formData);
+            setComplaints(prev => prev.map(c => c._id === resolvingId ? updated : c));
+            if (selectedComplaint?._id === resolvingId) setSelectedComplaint(updated);
+            
+            setResolveModalOpen(false);
+            setResolvedImage(null);
+            toast.success('Complaint resolved', { id: tid });
+        } catch (e: any) {
+            toast.error(e.message || 'Failed to resolve', { id: tid });
+        }
+    };
 
-        const matchesStatus = statusFilter === 'all' || complaint.status === statusFilter;
-        const matchesPriority = priorityFilter === 'all' || complaint.priority === priorityFilter;
+    const viewDetails = async (complaint: ComplaintData) => {
+        setSelectedComplaint(complaint);
+        setTimelineLoading(true);
+        try {
+            const data: any = await api.get(`/api/complaints/${complaint._id}/timeline`);
+            setTimeline(data.timeline || []);
+        } catch (e) {
+            toast.error('Failed to load timeline');
+        } finally {
+            setTimelineLoading(false);
+        }
+    };
 
-        return matchesSearch && matchesStatus && matchesPriority;
+    const filtered = complaints.filter(c => {
+        const matchSearch = c.complaintId.toLowerCase().includes(search.toLowerCase()) || c.title.toLowerCase().includes(search.toLowerCase());
+        const matchStatus = statusFilter === 'all' || c.status === statusFilter;
+        return matchSearch && matchStatus;
     });
 
     return (
-        <Layout type={userRole === 'admin' ? 'admin' : 'citizen'}>
-            <div className="max-w-7xl mx-auto px-6 py-8 w-full">
-                {/* Header */}
+        <Layout type="admin">
+            <div className="max-w-7xl mx-auto px-6 py-8">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-[#115e59] mb-2">
-                        {userRole === 'worker' ? 'My Assigned Tasks' : 'Complaint Management'}
-                    </h1>
-                    <p className="text-gray-500">
-                        {userRole === 'worker' ? 'View and update status of issues assigned to you' : 'Review, assign, and manage all citizen complaints'}
-                    </p>
+                    <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Complaint Management</h1>
+                    <p className="text-gray-500">Track and update civic issues through their 8-stage lifecycle.</p>
                 </div>
 
-                {/* Filter Bar */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-8 flex flex-col md:flex-row gap-4 items-center">
-                    <div className="relative flex-1 w-full">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Search by ID or title..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all text-gray-700"
-                        />
-                    </div>
-
-                    <div className="flex gap-4 w-full md:w-auto">
-                        <div className="relative min-w-[160px] w-full md:w-auto">
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="w-full pl-4 pr-10 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all appearance-none font-medium text-gray-700"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="in progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                            </div>
-                        </div>
-
-                        <div className="relative min-w-[160px] w-full md:w-auto">
-                            <select
-                                value={priorityFilter}
-                                onChange={(e) => setPriorityFilter(e.target.value)}
-                                className="w-full pl-4 pr-10 py-2 bg-gray-50 border border-transparent rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all appearance-none font-medium text-gray-700"
-                            >
-                                <option value="all">All Priorities</option>
-                                <option value="critical">Critical</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                            </select>
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                            </div>
-                        </div>
-
-                        <button className="flex items-center gap-2 px-6 py-2 border border-gray-200 bg-white rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap">
-                            <Download className="w-4 h-4" /> Export
-                        </button>
-                    </div>
+                <div className="flex gap-4 mb-6">
+                    <input
+                        type="text"
+                        placeholder="Search ID or Title..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                    />
+                    <select
+                        value={statusFilter}
+                        onChange={e => setStatusFilter(e.target.value)}
+                        className="px-4 py-2 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                        <option value="all">All Statuses</option>
+                        {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ').toUpperCase()}</option>)}
+                    </select>
                 </div>
 
-                {/* Table meta info */}
-                <p className="text-sm text-gray-500 mb-4">Showing {filteredComplaints.length} complaints</p>
-
-                {/* Data Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="border-b border-gray-100 bg-gray-50/50">
-                                <tr>
-                                    <th className="px-6 py-4 font-bold text-gray-900">ID</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Title</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Category</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Priority</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Status</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Location</th>
-                                    <th className="px-6 py-4 font-bold text-gray-900">Reported</th>
-                                    {userRole === 'admin' && <th className="px-6 py-4 font-bold text-gray-900 whitespace-nowrap">Assigned To</th>}
-                                    <th className="px-6 py-4 font-bold text-gray-900 text-right">Actions</th>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50/80 border-b border-gray-100">
+                            <tr>
+                                <th className="px-6 py-4 font-bold text-gray-900">ID</th>
+                                <th className="px-6 py-4 font-bold text-gray-900">Details</th>
+                                <th className="px-6 py-4 font-bold text-gray-900">Status</th>
+                                <th className="px-6 py-4 font-bold text-gray-900">Assigned To</th>
+                                <th className="px-6 py-4 font-bold text-gray-900">SLA</th>
+                                <th className="px-6 py-4 font-bold text-gray-900 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {isLoading ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">Loading complaints...</td></tr>
+                            ) : filtered.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-500">No complaints found.</td></tr>
+                            ) : filtered.map(c => (
+                                <tr key={c._id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 align-top font-bold text-gray-900">{c.complaintId}</td>
+                                    <td className="px-6 py-4 align-top max-w-sm">
+                                        <div className="font-bold text-gray-900 mb-1 truncate" title={c.title}>{c.title}</div>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                                            <span className="bg-gray-100 px-2 py-0.5 rounded font-semibold text-gray-700">{c.category}</span>
+                                            <span className={`px-2 py-0.5 rounded font-bold ${
+                                                c.priority === 'emergency' ? 'bg-red-100 text-red-700' :
+                                                c.priority === 'critical' ? 'bg-orange-100 text-orange-700' :
+                                                'bg-blue-100 text-blue-700'
+                                            }`}>{c.priority.toUpperCase()}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" /> {c.location}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 align-top">
+                                        <select
+                                            value={c.status}
+                                            onChange={e => handleUpdateStatus(c._id, e.target.value)}
+                                            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider appearance-none cursor-pointer border ${
+                                                c.status === 'resolved' || c.status === 'closed' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                c.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                c.status === 'submitted' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                                                'bg-orange-50 text-orange-700 border-orange-200'
+                                            }`}
+                                        >
+                                            {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                                        </select>
+                                    </td>
+                                    <td className="px-6 py-4 align-top text-xs text-gray-600">
+                                        {c.assignedMunicipality?.name ? (
+                                            <div>
+                                                <div className="font-bold text-teal-700">{c.assignedMunicipality.name}</div>
+                                                <div className="text-gray-400">{c.assignedOfficer?.name || c.assignedTo || 'Unassigned'}</div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 italic">Unassigned</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 align-top text-xs">
+                                        {c.slaDeadline ? (
+                                            <div className={`${c.slaBreached ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                                                {c.slaBreached && <AlertTriangle className="w-3 h-3 inline mr-1" />}
+                                                {new Date(c.slaDeadline).toLocaleString()}
+                                            </div>
+                                        ) : '-'}
+                                    </td>
+                                    <td className="px-6 py-4 align-top text-right">
+                                        <button onClick={() => viewDetails(c)} className="px-3 py-1.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
+                                            View Timeline
+                                        </button>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {isLoading ? (
-                                    [...Array(5)].map((_, i) => (
-                                        <tr key={i}>
-                                            <td className="px-6 py-4"><Skeleton height={20} width={80} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={20} width={150} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={20} width={100} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={24} width={60} circle={false} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={24} width={80} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={20} width={120} /></td>
-                                            <td className="px-6 py-4"><Skeleton height={20} width={80} /></td>
-                                            {userRole === 'admin' && <td className="px-6 py-4"><Skeleton height={20} width={100} /></td>}
-                                            <td className="px-6 py-4"><Skeleton height={32} width={120} /></td>
-                                        </tr>
-                                    ))
-                                ) : filteredComplaints.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                                            No complaints match your filters.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredComplaints.map((complaint) => (
-                                        <tr key={complaint._id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="px-6 py-4 align-top">
-                                                <span className="font-semibold text-gray-900 whitespace-nowrap">{complaint.complaintId}</span>
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top max-w-[280px]">
-                                                <div className="flex gap-3">
-                                                    {complaint.imageUrl && (
-                                                        <a href={getImageUrl(complaint.imageUrl)} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100 shadow-sm hover:opacity-80 transition-opacity">
-                                                            <img src={getImageUrl(complaint.imageUrl)} alt="Issue" className="w-full h-full object-cover" />
-                                                        </a>
-                                                    )}
-                                                    <div className="flex flex-col gap-1 items-start min-w-0 flex-1">
-                                                        <span className="font-semibold text-gray-900 truncate w-full" title={complaint.title}>
-                                                            {complaint.title}
-                                                        </span>
-                                                        {complaint.aiScore && (
-                                                            <span className="bg-purple-100 text-[#a855f7] px-2 py-0.5 rounded text-[10px] font-bold tracking-wide">
-                                                                AI: {complaint.aiScore}%
-                                                            </span>
-                                                        )}
-                                                        <div className="flex gap-2 mt-2">
-                                                            {complaint.status !== 'resolved' && (
-                                                                <button
-                                                                    onClick={() => handleResolve(complaint._id)}
-                                                                    className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold px-2 py-1 rounded transition-colors"
-                                                                >
-                                                                    Resolve
-                                                                </button>
-                                                            )}
-                                                            <button className="text-xs text-gray-500 hover:text-[#115e59] font-semibold transition-colors">
-                                                                View Details
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top text-gray-600 whitespace-nowrap">
-                                                {complaint.category}
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase whitespace-nowrap w-fit
-                                                        ${complaint.priority === 'critical' ? 'bg-red-100 text-red-600' : ''}
-                                                        ${complaint.priority === 'high' ? 'bg-orange-100 text-orange-600' : ''}
-                                                        ${complaint.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' : ''}
-                                                        ${complaint.priority === 'low' ? 'bg-green-100 text-green-600' : ''}
-                                                    `}>
-                                                        {complaint.priority}
-                                                    </span>
-                                                    {complaint.priorityScore && (
-                                                        <span className="text-[10px] text-gray-400 font-medium ml-1">
-                                                            Impact Score: {complaint.priorityScore}/15
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top">
-                                                <span className={`inline-block px-3 py-1 rounded text-[10px] font-bold tracking-wide uppercase whitespace-nowrap text-white
-                                                    ${complaint.status === 'in progress' ? 'bg-[#3b82f6]' : ''}
-                                                    ${complaint.status === 'pending' ? 'bg-[#f97316]' : ''}
-                                                    ${complaint.status === 'resolved' ? 'bg-[#22c55e]' : ''}
-                                                `}>
-                                                    {complaint.status}
-                                                </span>
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top text-gray-600 whitespace-nowrap">
-                                                {complaint.location}
-                                            </td>
-
-                                            <td className="px-6 py-4 align-top text-gray-600 whitespace-nowrap">
-                                                {new Date(complaint.reportedAt).toLocaleDateString()}
-                                            </td>
-
-                                            {userRole === 'admin' && (
-                                                <td className="px-6 py-4 align-top text-gray-600 whitespace-nowrap">
-                                                    <select
-                                                        value={complaint.assignedTo || ''}
-                                                        onChange={(e) => handleAssign(complaint._id, e.target.value)}
-                                                        className="bg-transparent border-b border-gray-300 border-dashed pb-0.5 text-sm focus:outline-none focus:border-[#115e59] text-gray-700 cursor-pointer appearance-none pr-4"
-                                                        style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%239ca3af%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right center', backgroundSize: '8px auto' }}
-                                                    >
-                                                        <option value="" disabled>Unassigned</option>
-                                                        <option value="Sanitation Dept">Sanitation Dept</option>
-                                                        <option value="Roads & Highways">Roads & Highways</option>
-                                                        <option value="Water Board">Water Board</option>
-                                                        <option value="Electrical Dept">Electrical Dept</option>
-                                                        <option value="Parks & Rec">Parks & Rec</option>
-                                                        <option value="City Police">City Police</option>
-                                                    </select>
-                                                </td>
-                                            )}
-
-                                            <td className="px-6 py-4 align-top text-right whitespace-nowrap">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button className="w-8 h-8 rounded border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors bg-white shadow-sm">
-                                                        <UserIcon className="w-4 h-4" />
-                                                    </button>
-
-                                                    <div className="relative inline-block text-left w-full max-w-[160px]">
-                                                        <select
-                                                            value={complaint.status}
-                                                            onChange={(e) => handleUpdateStatus(complaint._id, e.target.value)}
-                                                            className="w-full bg-gray-50 border border-gray-200 text-gray-700 pl-3 pr-10 py-1.5 rounded text-sm font-semibold hover:bg-gray-100 transition-colors shadow-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#115e59]/20"
-                                                        >
-                                                            <option value="pending">Pending</option>
-                                                            <option value="in progress">In Progress</option>
-                                                            <option value="resolved">Resolved</option>
-                                                        </select>
-                                                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                                            <ChevronDown className="w-4 h-4 text-gray-400" />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-
             </div>
 
             {/* Resolve Modal */}
             {resolveModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-                            <h2 className="text-lg font-bold text-gray-900">Resolve Complaint</h2>
-                            <button
-                                onClick={() => setResolveModalOpen(false)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+                        <h2 className="text-xl font-bold text-gray-900 mb-4">Resolve Issue</h2>
+                        <p className="text-sm text-gray-500 mb-4">Please upload a photo showing the issue has been fixed (optional but recommended).</p>
+                        <input type="file" accept="image/*" onChange={e => setResolvedImage(e.target.files?.[0] || null)} className="w-full border p-2 rounded-lg mb-6 text-sm" />
+                        <div className="flex justify-end gap-3">
+                            <button onClick={() => setResolveModalOpen(false)} className="px-4 py-2 font-bold text-gray-500 hover:bg-gray-100 rounded-xl">Cancel</button>
+                            <button onClick={handleResolve} className="px-4 py-2 font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl">Mark Resolved</button>
                         </div>
-                        <div className="p-6">
-                            <p className="text-sm text-gray-600 mb-4">
-                                Please upload an "After" photo to show the resolved state of the issue before closing it. This provides confirmation for the citizen.
-                            </p>
+                    </div>
+                </div>
+            )}
 
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                ref={resolveFileInputRef}
-                                onChange={handleResolvedImageChange}
-                            />
-                            <div
-                                onClick={() => resolveFileInputRef.current?.click()}
-                                className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer text-center relative overflow-hidden"
-                            >
-                                {resolvedImagePreview && (
-                                    <img src={resolvedImagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                                )}
-                                <div className="z-10 flex flex-col items-center">
-                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-gray-400">
-                                        <Camera className="w-6 h-6" />
+            {/* Details & Timeline Drawer */}
+            {selectedComplaint && (
+                <div className="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-40 border-l border-gray-100 flex flex-col transform transition-transform duration-300">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <h2 className="font-extrabold text-lg text-gray-900">{selectedComplaint.complaintId}</h2>
+                        <button onClick={() => setSelectedComplaint(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <div className="mb-8">
+                            <h3 className="font-bold text-xl text-gray-900 mb-2">{selectedComplaint.title}</h3>
+                            <p className="text-sm text-gray-600 leading-relaxed mb-4">{selectedComplaint.description}</p>
+                            {selectedComplaint.imageUrl && (
+                                <img src={getImageUrl(selectedComplaint.imageUrl)} alt="Reported" className="w-full h-48 object-cover rounded-xl border border-gray-200 shadow-sm" />
+                            )}
+                        </div>
+
+                        <h4 className="font-bold text-gray-900 uppercase text-xs tracking-wider mb-4 text-teal-700 flex items-center gap-2"><Clock className="w-4 h-4" /> Activity Timeline</h4>
+                        
+                        {timelineLoading ? (
+                            <div className="flex justify-center p-8"><span className="animate-spin text-teal-600">⌛</span></div>
+                        ) : (
+                            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
+                                {timeline.map((item, idx) => (
+                                    <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-teal-100 text-teal-600 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                                            <CheckCircle className="w-4 h-4" />
+                                        </div>
+                                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="font-bold text-gray-900 text-sm">{item.action.replace(/_/g, ' ').toUpperCase()}</div>
+                                                <div className="text-xs text-gray-400">{new Date(item.at).toLocaleDateString()}</div>
+                                            </div>
+                                            <p className="text-sm text-gray-600">{item.comment}</p>
+                                            <div className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                                <UserIcon className="w-3 h-3" /> {item.by} ({item.role})
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="font-semibold text-gray-900 text-sm mb-1">{resolvedImagePreview ? 'Click to change photo' : 'Upload verification photo'}</p>
-                                    <p className="text-xs text-gray-500">Optional, but highly recommended</p>
-                                </div>
+                                ))}
                             </div>
-                        </div>
-                        <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-                            <button
-                                onClick={() => setResolveModalOpen(false)}
-                                className="px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmResolve}
-                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
-                            >
-                                Complete Resolution
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}
         </Layout>
     );
-};
-
-export default ManageComplaints;
+}

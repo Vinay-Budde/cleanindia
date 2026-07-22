@@ -1,29 +1,21 @@
 import { Router } from 'express';
 import * as authController from '../controllers/authController';
 import { validate } from '../middleware/validate';
+import { authenticate, authorize } from '../middleware/auth';
 import {
-    registerSchema,
-    loginSchema,
-    forgotPasswordSchema,
-    resetPasswordSchema
+    registerSchema, loginSchema, forgotPasswordSchema,
+    resetPasswordSchema, inviteSchema, acceptInviteSchema
 } from '../schemas/authSchema';
 
 const router = Router();
+const INVITE_ROLES = ['super_admin','admin','state_admin','commissioner'];
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
 router.post('/register', validate(registerSchema), authController.register);
-
-// @route   POST /api/auth/login
-// @desc    Authenticate user & get token
 router.post('/login', validate(loginSchema), authController.login);
-
-// @route   POST /api/auth/forgot-password
-// @desc    Verify if email exists for reset
 router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
-
-// @route   POST /api/auth/reset-password
-// @desc    Reset password using email directly
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
+router.post('/invite', authenticate, authorize(INVITE_ROLES), validate(inviteSchema), authController.inviteOfficer);
+router.get('/invite/:token', authController.getInvite);
+router.post('/accept-invite/:token', validate(acceptInviteSchema), authController.acceptInvite);
 
 export default router;

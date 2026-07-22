@@ -1,5 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 
+const OFFICER_ROLES = ['super_admin', 'state_admin', 'commissioner', 'zone_officer', 'ward_officer', 'field_inspector', 'admin'];
+
 interface ProtectedRouteProps {
     children: React.ReactNode;
     role?: 'admin' | 'worker' | 'citizen';
@@ -7,7 +9,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
     const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('userRole');
+    const userRole = localStorage.getItem('userRole') || 'citizen';
     const location = useLocation();
 
     // Not authenticated — send to login
@@ -15,15 +17,15 @@ const ProtectedRoute = ({ children, role }: ProtectedRouteProps) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Route requires a specific role and user doesn't have it
-    if (role && userRole !== role) {
-        if (userRole === 'admin') return <Navigate to="/admin/dashboard" replace />;
-        if (userRole === 'worker') return <Navigate to="/worker/dashboard" replace />;
+    const isOfficer = OFFICER_ROLES.includes(userRole);
+
+    // Route requires 'admin' (officer) and user is not an officer
+    if (role === 'admin' && !isOfficer) {
         return <Navigate to="/dashboard" replace />;
     }
 
-    // Route is citizen-only (no role prop) but user is admin — redirect them to admin area
-    if (!role && userRole === 'admin') {
+    // Route is citizen-only (no role prop) but user is officer — redirect them to admin area
+    if (!role && isOfficer) {
         return <Navigate to="/admin/dashboard" replace />;
     }
 

@@ -14,6 +14,9 @@ import authRoutes from './routes/auth';
 import notificationRoutes from './routes/notifications';
 import userRoutes from './routes/users';
 import municipalityRoutes from './routes/municipalities';
+import zoneRoutes from './routes/zones';
+import wardRoutes from './routes/wards';
+import analyticsRoutes from './routes/analytics';
 import { errorHandler } from './middleware/error';
 
 const app = express();
@@ -46,6 +49,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/municipalities', municipalityRoutes);
+app.use('/api/zones', zoneRoutes);
+app.use('/api/wards', wardRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {

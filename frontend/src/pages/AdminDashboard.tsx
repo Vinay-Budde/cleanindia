@@ -132,6 +132,8 @@ const AdminDashboard = () => {
     const [viewMode, setViewMode] = useState<'markers' | 'heatmap'>('markers');
     const [activePriorities, setActivePriorities] = useState<Set<string>>(new Set(['critical', 'high', 'medium', 'low']));
     const [municipalities, setMunicipalities] = useState<any[]>([]);
+    const [zones, setZones] = useState<any[]>([]);
+    const [wards, setWards] = useState<any[]>([]);
     const [muniStats, setMuniStats] = useState<any[]>([]);
     const [mapTab, setMapTab] = useState<'complaints' | 'jurisdictions'>('complaints');
 
@@ -260,12 +262,16 @@ const AdminDashboard = () => {
     useEffect(() => {
         const fetchMunis = async () => {
             try {
-                const [mapData, statsData] = await Promise.all([
+                const [mapData, statsData, zonesData, wardsData] = await Promise.all([
                     api.get<any[]>('/api/municipalities/map'),
                     api.get<any[]>('/api/municipalities/stats'),
+                    api.get<any[]>('/api/zones').catch(() => []),
+                    api.get<any[]>('/api/wards').catch(() => []),
                 ]);
                 setMunicipalities(mapData || []);
                 setMuniStats(statsData || []);
+                setZones(zonesData || []);
+                setWards(wardsData || []);
             } catch {
                 // Non-fatal — municipality data may not exist yet
             }
@@ -445,7 +451,7 @@ const AdminDashboard = () => {
                                             );
                                             const stat=muniStats.find((s:any)=>s._id?.toString()===mc._id?.toString());
                                             return (
-                                                <Polygon key={mc._id} positions={positions} pathOptions={{color,fillColor:color,fillOpacity:0.15,weight:2.5}}>
+                                                <Polygon key={mc._id} positions={positions} pathOptions={{color,fillColor:color,fillOpacity:0.1,weight:3}}>
                                                     <Popup minWidth={220}>
                                                         <div style={{fontFamily:'system-ui',minWidth:220}}>
                                                             <div style={{background:color,padding:'10px 14px',margin:'-8px -12px 10px',borderRadius:'8px 8px 0 0'}}>
@@ -457,10 +463,27 @@ const AdminDashboard = () => {
                                                                 {mc.phone&&<div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Phone</div><div style={{color:'#374151'}}>{mc.phone}</div></div>}
                                                                 <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Total Complaints</div><div style={{color:'#374151',fontWeight:700}}>{stat?.total??0}</div></div>
                                                                 <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Resolved</div><div style={{color:'#10b981',fontWeight:700}}>{stat?.resolved??0}</div></div>
-                                                                <div><div style={{fontSize:9,color:'#9ca3af',fontWeight:600,textTransform:'uppercase',marginBottom:1}}>Critical</div><div style={{color:'#ef4444',fontWeight:700}}>{stat?.critical??0}</div></div>
                                                             </div>
                                                         </div>
                                                     </Popup>
+                                                </Polygon>
+                                            );
+                                        })}
+                                        {zones.filter((z:any)=>z.boundary).map((z:any)=>{
+                                            const color='#f97316';
+                                            const positions:any[]=z.boundary.coordinates[0].map(([lng,lat]:[number,number])=>[lat,lng]);
+                                            return (
+                                                <Polygon key={z._id} positions={positions} pathOptions={{color,fillColor:color,fillOpacity:0.15,weight:2,dashArray:'5, 5'}}>
+                                                    <Popup><b>Zone:</b> {z.name}</Popup>
+                                                </Polygon>
+                                            );
+                                        })}
+                                        {wards.filter((w:any)=>w.boundary).map((w:any)=>{
+                                            const color='#3b82f6';
+                                            const positions:any[]=w.boundary.coordinates[0].map(([lng,lat]:[number,number])=>[lat,lng]);
+                                            return (
+                                                <Polygon key={w._id} positions={positions} pathOptions={{color,fillColor:color,fillOpacity:0.2,weight:1.5,dashArray:'3, 3'}}>
+                                                    <Popup><b>Ward:</b> {w.name} {w.wardNumber ? `(${w.wardNumber})` : ''}</Popup>
                                                 </Polygon>
                                             );
                                         })}

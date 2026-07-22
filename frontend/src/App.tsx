@@ -7,8 +7,12 @@ import ReportIssue from './pages/ReportIssue';
 import MyComplaints from './pages/MyComplaints';
 import Leaderboard from './pages/Leaderboard';
 import AdminDashboard from './pages/AdminDashboard';
+import OfficerDashboard from './pages/OfficerDashboard';
 import ManageComplaints from './pages/ManageComplaints';
 import MunicipalityManager from './pages/MunicipalityManager';
+import InviteOfficer from './pages/InviteOfficer';
+import AcceptInvite from './pages/AcceptInvite';
+import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import ForgotPassword from './pages/ForgotPassword';
@@ -17,8 +21,17 @@ import Layout from './components/Layout';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Helper: read role from localStorage for use in route wrappers
-const getUserRole = () => localStorage.getItem('userRole') as 'citizen' | 'admin' | 'worker' | null;
+const OFFICER_ROLES = ['super_admin', 'state_admin', 'commissioner', 'zone_officer', 'ward_officer', 'field_inspector', 'admin'];
+const getUserRole = () => localStorage.getItem('userRole') || 'citizen';
+const isOfficer = () => OFFICER_ROLES.includes(getUserRole());
+
+const AdminDashboardWrapper = () => {
+  const role = getUserRole();
+  if (role === 'super_admin' || role === 'admin') {
+    return <AdminDashboard />;
+  }
+  return <OfficerDashboard />;
+};
 
 function App() {
   return (
@@ -32,33 +45,36 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/accept-invite/:token" element={<AcceptInvite />} />
 
-        {/* /admin → redirect to /admin/dashboard if already logged in as admin, else show login */}
+        {/* /admin → redirect to /admin/dashboard if already logged in as officer, else show login */}
         <Route
           path="/admin"
           element={
-            localStorage.getItem('token') && getUserRole() === 'admin'
+            localStorage.getItem('token') && isOfficer()
               ? <Navigate to="/admin/dashboard" replace />
               : <Login />
           }
         />
 
-        {/* Admin-only routes */}
-        <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
+        {/* Admin/Officer routes */}
+        <Route path="/admin/dashboard" element={<ProtectedRoute role="admin"><AdminDashboardWrapper /></ProtectedRoute>} />
         <Route path="/admin/complaints" element={<ProtectedRoute role="admin"><ManageComplaints /></ProtectedRoute>} />
         <Route path="/admin/municipalities" element={<ProtectedRoute role="admin"><MunicipalityManager /></ProtectedRoute>} />
+        <Route path="/admin/invite-officer" element={<ProtectedRoute role="admin"><InviteOfficer /></ProtectedRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedRoute role="admin"><Analytics /></ProtectedRoute>} />
 
-        {/* Citizen-only routes (ProtectedRoute without role prop will redirect admins) */}
+        {/* Citizen routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/report" element={<ProtectedRoute><ReportIssue /></ProtectedRoute>} />
         <Route path="/complaints" element={<ProtectedRoute><MyComplaints /></ProtectedRoute>} />
 
-        {/* Shared protected routes — Layout type adapts to role */}
+        {/* Shared protected routes */}
         <Route
           path="/profile"
           element={
             <ProtectedRoute>
-              <Layout type={getUserRole() === 'admin' ? 'admin' : 'citizen'}>
+              <Layout type={isOfficer() ? 'admin' : 'citizen'}>
                 <Profile />
               </Layout>
             </ProtectedRoute>
