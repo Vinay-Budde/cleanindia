@@ -106,6 +106,35 @@ export interface IComplaint extends Document {
     isDuplicate?: boolean;
     parentComplaintId?: mongoose.Types.ObjectId;
     supportCount: number;
+    // Emergency
+    isEmergency: boolean;
+    emergencyType?: 'flood' | 'earthquake' | 'fire' | 'gas_leak' | 'other';
+    // Citizen Verification
+    verifiedByCitizens: mongoose.Types.ObjectId[];
+    verificationCount: number;
+    supportedBy: mongoose.Types.ObjectId[];
+    // Weather
+    weatherAlert?: string;
+    // Infrastructure proximity
+    nearbyInfrastructure: string[];
+    // Scoring
+    severityScore: number;
+    // AI predictions
+    aiCategory?: string;
+    aiPriority?: string;
+    aiConfidence?: number;
+    // QR
+    qrCode?: string;
+    // Cost tracking
+    estimatedCost?: number;
+    actualCost?: number;
+    // Contractor
+    contractorId?: mongoose.Types.ObjectId;
+    // Work tracking
+    workStartedAt?: Date;
+    workCompletedAt?: Date;
+    // Citizen reputation snapshot
+    citizenReputation?: number;
 }
 
 const complaintSchema = new Schema<IComplaint>({
@@ -205,6 +234,35 @@ const complaintSchema = new Schema<IComplaint>({
     isDuplicate: { type: Boolean, default: false },
     parentComplaintId: { type: Schema.Types.ObjectId, ref: 'Complaint' },
     supportCount: { type: Number, default: 0 },
+    // Emergency
+    isEmergency: { type: Boolean, default: false },
+    emergencyType: { type: String, enum: ['flood','earthquake','fire','gas_leak','other'] },
+    // Citizen Verification
+    verifiedByCitizens: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    verificationCount: { type: Number, default: 0 },
+    supportedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    // Weather
+    weatherAlert: { type: String },
+    // Infrastructure proximity
+    nearbyInfrastructure: [{ type: String }],
+    // Scoring
+    severityScore: { type: Number, default: 0 },
+    // AI predictions
+    aiCategory: { type: String },
+    aiPriority: { type: String },
+    aiConfidence: { type: Number },
+    // QR
+    qrCode: { type: String },
+    // Cost tracking
+    estimatedCost: { type: Number },
+    actualCost: { type: Number },
+    // Contractor
+    contractorId: { type: Schema.Types.ObjectId, ref: 'Contractor' },
+    // Work tracking
+    workStartedAt: { type: Date },
+    workCompletedAt: { type: Date },
+    // Citizen reputation snapshot
+    citizenReputation: { type: Number },
 }, { timestamps: true });
 
 // 2dsphere index for 20m proximity duplicate detection
@@ -213,5 +271,6 @@ complaintSchema.index({ status: 1, reportedAt: -1 });
 complaintSchema.index({ assignedMunicipality: 1, status: 1 });
 complaintSchema.index({ category: 1, reportedAt: -1 });
 complaintSchema.index({ slaDeadline: 1, slaBreached: 1 });
+complaintSchema.index({ title: 'text', description: 'text', location: 'text', category: 'text' });
 
 export const Complaint = mongoose.model<IComplaint>('Complaint', complaintSchema);

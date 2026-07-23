@@ -17,6 +17,8 @@ import municipalityRoutes from './routes/municipalities';
 import zoneRoutes from './routes/zones';
 import wardRoutes from './routes/wards';
 import analyticsRoutes from './routes/analytics';
+import inventoryRoutes from './routes/inventory';
+import contractorRoutes from './routes/contractors';
 import { errorHandler } from './middleware/error';
 
 const app = express();
@@ -52,6 +54,8 @@ app.use('/api/municipalities', municipalityRoutes);
 app.use('/api/zones', zoneRoutes);
 app.use('/api/wards', wardRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/contractors', contractorRoutes);
 
 // Connect to MongoDB & Start Server
 const connectDB = async () => {

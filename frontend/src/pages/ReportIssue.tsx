@@ -15,7 +15,8 @@ const ReportIssue = () => {
         location: '',
         description: '',
         latitude: null as number | null,
-        longitude: null as number | null
+        longitude: null as number | null,
+        isEmergency: false,
     });
 
     const [isLocating, setIsLocating] = useState(false);
@@ -30,35 +31,77 @@ const ReportIssue = () => {
         setIsAnalyzing(true);
         const tid = toast.loading('AI analyzing image...');
 
-        // Simulating AI analysis time
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        // Keyword-based fallback detection
+        const runKeywordDetection = () => {
+            const fileName = file.name.toLowerCase();
+            const title = formData.title.toLowerCase();
+            const searchText = `${fileName} ${title}`;
+            let detected = { category: 'Others', priority: 'medium', confidence: 85 };
+            if (searchText.includes('garbage') || searchText.includes('waste') || searchText.includes('trash') || searchText.includes('dump')) {
+                detected = { category: 'Garbage', priority: 'medium', confidence: 98 };
+            } else if (searchText.includes('pothole') || searchText.includes('road') || searchText.includes('crack') || searchText.includes('pit')) {
+                detected = { category: 'Potholes', priority: 'high', confidence: 94 };
+            } else if (searchText.includes('drain') || searchText.includes('water') || searchText.includes('sewage') || searchText.includes('leak')) {
+                detected = { category: 'Drainage', priority: 'high', confidence: 89 };
+            } else if (searchText.includes('light') || searchText.includes('lamp') || searchText.includes('dark')) {
+                detected = { category: 'Street Lights', priority: 'low', confidence: 92 };
+            }
+            return detected;
+        };
 
-        const fileName = file.name.toLowerCase();
-        const title = formData.title.toLowerCase();
-        const searchText = `${fileName} ${title}`;
-        
-        let detected = { category: 'Others', priority: 'medium', confidence: 85 };
+        try {
+            // Call backend AI endpoint
+            const aiResult: any = await api.post('/api/complaints/analyze-ai', {
+                title: formData.title,
+                description: formData.description,
+                category: formData.category,
+                latitude: formData.latitude,
+                longitude: formData.longitude,
+            }).catch(() => null);
 
-        if (searchText.includes('garbage') || searchText.includes('waste') || searchText.includes('trash') || searchText.includes('dump')) {
-            detected = { category: 'Garbage', priority: 'medium', confidence: 98 };
-        } else if (searchText.includes('pothole') || searchText.includes('road') || searchText.includes('crack') || searchText.includes('pit')) {
-            detected = { category: 'Potholes', priority: 'high', confidence: 94 };
-        } else if (searchText.includes('drain') || searchText.includes('water') || searchText.includes('sewage') || searchText.includes('leak')) {
-            detected = { category: 'Drainage', priority: 'high', confidence: 89 };
-        } else if (searchText.includes('light') || searchText.includes('lamp') || searchText.includes('dark')) {
-            detected = { category: 'Street Lights', priority: 'low', confidence: 92 };
+            if (aiResult) {
+                // Warn if AI suggests a different category
+                if (formData.category && formData.category !== aiResult.category && aiResult.confidence > 80) {
+                    toast(`AI suggests: ${aiResult.category} (${aiResult.confidence}% confidence). Category mismatch!`, { icon: '⚠️', duration: 6000 });
+                }
+                setFormData(prev => ({
+                    ...prev,
+                    category: prev.category || aiResult.category,
+                    priority: prev.priority || aiResult.priority,
+                    title: prev.title || `${aiResult.category} issue near ${prev.location || 'location'}`,
+                }));
+                setAiConfidence(aiResult.confidence);
+                if (Array.isArray(aiResult.nearbyInfrastructure) && aiResult.nearbyInfrastructure.length > 0) {
+                    toast(`⚠️ Nearby: ${aiResult.nearbyInfrastructure.join(', ')}. Priority elevated!`, { duration: 5000 });
+                }
+                if (aiResult.weatherAlert) toast(`🌧️ ${aiResult.weatherAlert}`, { duration: 5000 });
+                toast.success(`AI: ${aiResult.category} detected (${aiResult.confidence}% confidence)`, { id: tid });
+            } else {
+                // Fallback to keyword matching
+                const detected = runKeywordDetection();
+                setFormData(prev => ({
+                    ...prev,
+                    category: prev.category || detected.category,
+                    priority: prev.priority || detected.priority,
+                    title: prev.title || `Issue: ${detected.category} detected near ${prev.location || 'current location'}`,
+                }));
+                setAiConfidence(detected.confidence);
+                toast.success(`AI Detection: ${detected.category} (${detected.confidence}%)`, { id: tid });
+            }
+        } catch {
+            // Fallback to keyword matching on any error
+            const detected = runKeywordDetection();
+            setFormData(prev => ({
+                ...prev,
+                category: prev.category || detected.category,
+                priority: prev.priority || detected.priority,
+                title: prev.title || `Issue: ${detected.category} detected near ${prev.location || 'current location'}`,
+            }));
+            setAiConfidence(detected.confidence);
+            toast.success(`AI Detection: ${detected.category} (${detected.confidence}%)`, { id: tid });
+        } finally {
+            setIsAnalyzing(false);
         }
-
-        setFormData(prev => ({
-            ...prev,
-            category: detected.category,
-            priority: detected.priority,
-            title: prev.title || `Issue: ${detected.category} detected near ${prev.location || 'current location'}`
-        }));
-
-        setAiConfidence(detected.confidence);
-        setIsAnalyzing(false);
-        toast.success(`AI Detection: ${detected.category} (${detected.confidence}%)`, { id: tid });
     };
 
     const handleGetLocation = () => {
@@ -134,6 +177,7 @@ const ReportIssue = () => {
             // Add location if available
             if (formData.latitude) payload.append('latitude', formData.latitude.toString());
             if (formData.longitude) payload.append('longitude', formData.longitude.toString());
+            payload.append('isEmergency', String(formData.isEmergency));
 
             if (selectedFile) {
                 payload.append('image', selectedFile);
@@ -276,6 +320,21 @@ const ReportIssue = () => {
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#115e59]/20 focus:border-[#115e59] transition-all resize-none"
                             ></textarea>
+                        </div>
+
+                        {/* Emergency Mode */}
+                        <div style={{ background: '#fef2f2', border: '2px solid #fecaca', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <input
+                                type="checkbox"
+                                id="isEmergency"
+                                checked={formData.isEmergency}
+                                onChange={e => setFormData(prev => ({ ...prev, isEmergency: e.target.checked }))}
+                                style={{ width: 18, height: 18, accentColor: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
+                            />
+                            <label htmlFor="isEmergency" style={{ cursor: 'pointer' }}>
+                                <div style={{ fontWeight: 800, color: '#dc2626', fontSize: 14 }}>🚨 Emergency / Urgent Hazard</div>
+                                <div style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>Mark if this is a life-threatening emergency (flood, fire, gas leak, electrical hazard)</div>
+                            </label>
                         </div>
 
                         {/* Upload Photo */}

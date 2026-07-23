@@ -9,5 +9,10 @@ router.get('/trends', authenticate, authorizeOfficer, analyticsController.getMon
 router.get('/municipalities', authenticate, authorizeOfficer, analyticsController.getMunicipalityStats);
 router.get('/resolution-time', authenticate, authorizeOfficer, analyticsController.getResolutionTime);
 router.get('/heatmap', authenticate, authorizeOfficer, analyticsController.getHeatmapData);
+router.get('/heatmap-category', authenticate, authorizeOfficer, analyticsController.getCategoryHeatmap);
+router.get('/predictive', authenticate, authorizeOfficer, analyticsController.getPredictiveAnalytics);
+router.get('/officer-performance', authenticate, authorizeOfficer, analyticsController.getOfficerPerformance);
+router.get('/ward-recommendations', authenticate, authorizeOfficer, analyticsController.getWardRecommendations);
 
 export default router;
+

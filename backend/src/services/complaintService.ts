@@ -6,6 +6,9 @@ import { MunicipalityService } from './municipalityService';
 import { DuplicateDetectionService } from './duplicateDetectionService';
 import { SLAService } from './slaService';
 import { CATEGORY_PRIORITY, DEFAULT_PRIORITY } from '../config/priorityConfig';
+import { AIService } from './aiService';
+import { SeverityService } from './severityService';
+import { WeatherService } from './weatherService';
 
 export class ComplaintService {
     private static calculatePriority(category: string, severity: number, traffic: number, population: number) {
@@ -53,6 +56,36 @@ export class ComplaintService {
         let imageUrl = data.imageUrl || null;
         if (file) imageUrl = await uploadToCloudinary(file, 'complaints');
 
+        // --- Intelligence: AI, Weather, Severity (run in parallel, non-blocking) ---
+        let nearbyInfrastructure: string[] = [];
+        let weatherAlert: string | null = null;
+        let severityScore = 3;
+
+        if (lat !== undefined && lng !== undefined) {
+            const [infraRes, weatherRes] = await Promise.all([
+                SeverityService.calculateInfrastructureSeverity(lat, lng, category).catch(() => ({ score: 3, pois: [] })),
+                WeatherService.checkWeatherImpact(lat, lng, category).catch(() => ({ hasAlert: false, alertType: null, priorityBump: false }))
+            ]);
+            nearbyInfrastructure = infraRes.pois;
+            severityScore = infraRes.score;
+            weatherAlert = weatherRes.alertType;
+            if (weatherRes.priorityBump) severityScore += 2;
+        }
+
+        // AI analysis
+        const aiResult = await AIService.analyzeComplaint(title, description, category).catch(() => null);
+
+        // Determine if emergency
+        const isEmergency = !!(data.isEmergency || category === 'Electrical Hazard' || category === 'Road Collapse');
+
+        // Bump up priority based on context
+        let finalPriority: string = label;
+        if (isEmergency) {
+            finalPriority = 'emergency';
+        } else if ((nearbyInfrastructure.includes('hospital') || nearbyInfrastructure.includes('school')) && label === 'medium') {
+            finalPriority = 'high';
+        }
+
         // SLA
         const slaHours = SLAService.getSLAHours(category);
         const slaDeadline = SLAService.computeDeadline(category);
@@ -65,7 +98,7 @@ export class ComplaintService {
         const newComplaint = new Complaint({
             complaintId: `CMP-${new Date().getFullYear()}-${Math.floor(Math.random() * 90000) + 10000}`,
             title, category,
-            priority: label,
+            priority: finalPriority,
             severity, trafficLevel, populationDensity,
             priorityScore: score,
             location, description,
@@ -75,6 +108,14 @@ export class ComplaintService {
             geoPoint,
             slaHours, slaDeadline,
             aiScore: data.aiScore || Math.floor(Math.random() * 20) + 80,
+            // New intelligence fields
+            isEmergency,
+            nearbyInfrastructure,
+            weatherAlert: weatherAlert || undefined,
+            severityScore,
+            aiCategory: aiResult?.category,
+            aiPriority: aiResult?.priority,
+            aiConfidence: aiResult?.confidence,
             attachments: imageUrl ? [{ url: imageUrl, label: 'before', uploadedBy: reportedBy, uploadedAt: new Date() }] : [],
             timeline: [{
                 action: 'submitted',

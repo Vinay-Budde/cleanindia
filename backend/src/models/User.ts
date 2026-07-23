@@ -36,6 +36,15 @@ export interface IUser extends Document {
     otpExpires?: Date;
     resetPasswordToken?: string;
     resetPasswordExpires?: Date;
+    // Citizen Reputation
+    reputationScore: number;
+    genuineReports: number;
+    flaggedReports: number;
+    spamReports: number;
+    isTrusted: boolean;
+    badges: string[];
+    // Officer location tracking
+    lastLocation?: { lat: number; lng: number; updatedAt: Date };
 }
 
 const userSchema = new Schema<IUser>({
@@ -63,6 +72,19 @@ const userSchema = new Schema<IUser>({
     otpExpires: { type: Date },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
+    // Citizen Reputation
+    reputationScore: { type: Number, default: 100 },
+    genuineReports: { type: Number, default: 0 },
+    flaggedReports: { type: Number, default: 0 },
+    spamReports: { type: Number, default: 0 },
+    isTrusted: { type: Boolean, default: false },
+    badges: [{ type: String }],
+    // Officer location tracking
+    lastLocation: {
+        lat: { type: Number },
+        lng: { type: Number },
+        updatedAt: { type: Date },
+    },
 });
 
 const OFFICER_ROLES: UserRole[] = ['super_admin','state_admin','commissioner','zone_officer','ward_officer','field_inspector','admin'];

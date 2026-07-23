@@ -94,5 +94,9 @@ export const api = {
             headers: { ...headers, ...(options.headers as any) },
             body: body instanceof FormData ? body : JSON.stringify(body),
         });
+    },
+
+    delete<T = any>(endpoint: string, options: RequestInit = {}) {
+        return this.request<T>(endpoint, { ...options, method: 'DELETE' });
     }
 };

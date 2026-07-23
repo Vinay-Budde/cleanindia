@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Bell, User as UserIcon, Home, Plus, FileText, Trophy, Facebook, Twitter, Youtube, LayoutDashboard, Settings, LogOut, CheckCircle, Info, AlertTriangle, Building2, BarChart3 } from 'lucide-react';
+import { Bell, User as UserIcon, Home, Plus, FileText, Trophy, Facebook, Twitter, Youtube, LayoutDashboard, Settings, LogOut, CheckCircle, Info, AlertTriangle, Building2, BarChart3, Globe, Map } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,7 @@ const Layout = ({ children, type = 'citizen' }: LayoutProps) => {
         { path: '/report', icon: Plus, label: 'Report Issue' },
         { path: '/complaints', icon: FileText, label: 'My Complaints' },
         { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+        { path: '/public-feed', icon: Globe, label: 'Public Feed' },
     ];
 
     const adminNavItems = [
@@ -25,6 +26,7 @@ const Layout = ({ children, type = 'citizen' }: LayoutProps) => {
         { path: '/admin/municipalities', icon: Building2, label: 'Municipalities' },
         { path: '/admin/invite-officer', icon: Plus, label: 'Invite Officers' },
         { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+        { path: '/admin/route-planner', icon: Map, label: 'Route Planner' },
     ];
 
     const navItems = type === 'admin' ? adminNavItems : citizenNavItems;

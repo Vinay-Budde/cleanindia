@@ -17,6 +17,11 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import PublicFeed from './pages/PublicFeed';
+import RoutePlanner from './pages/RoutePlanner';
+import PredictiveAnalytics from './pages/PredictiveAnalytics';
+import InventoryManagement from './pages/InventoryManagement';
+import SmartSearch from './pages/SmartSearch';
 import Layout from './components/Layout';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -45,6 +50,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/public-feed" element={<PublicFeed />} />
         <Route path="/accept-invite/:token" element={<AcceptInvite />} />
 
         {/* /admin → redirect to /admin/dashboard if already logged in as officer, else show login */}
@@ -63,6 +69,10 @@ function App() {
         <Route path="/admin/municipalities" element={<ProtectedRoute role="admin"><MunicipalityManager /></ProtectedRoute>} />
         <Route path="/admin/invite-officer" element={<ProtectedRoute role="admin"><InviteOfficer /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute role="admin"><Analytics /></ProtectedRoute>} />
+        <Route path="/admin/predictive" element={<ProtectedRoute role="admin"><PredictiveAnalytics /></ProtectedRoute>} />
+        <Route path="/admin/route-planner" element={<ProtectedRoute role="admin"><RoutePlanner /></ProtectedRoute>} />
+        <Route path="/admin/inventory" element={<ProtectedRoute role="admin"><InventoryManagement /></ProtectedRoute>} />
+        <Route path="/admin/search" element={<ProtectedRoute role="admin"><SmartSearch /></ProtectedRoute>} />
 
         {/* Citizen routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
