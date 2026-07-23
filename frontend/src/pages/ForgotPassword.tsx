@@ -1,32 +1,55 @@
 import { useState } from 'react';
-import { Mail, AlertCircle } from 'lucide-react';
+import { Mail, AlertCircle, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const ForgotPassword = () => {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
-    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
+
+    const passwordsMatch = confirmPassword.length > 0 && newPassword === confirmPassword;
+    const passwordTooShort = newPassword.length > 0 && newPassword.length < 8;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!email) {
+            toast.error('Email is required');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            toast.error('Passwords do not match');
+            return;
+        }
+        if (newPassword.length < 8) {
+            toast.error('Password must be at least 8 characters');
+            return;
+        }
+
         setStatus('loading');
         setErrorMessage('');
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/forgot-password`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email, newPassword }),
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                // If account exists, redirect directly to reset-password screen passing email
-                navigate(`/reset-password?email=${encodeURIComponent(email)}`);
+                toast.success('Password reset successfully!');
+                setStatus('success');
+                setTimeout(() => navigate('/login'), 2000); // Redirect to login after a short delay
             } else {
-                setErrorMessage(data?.message || 'Something went wrong. Please try again.');
+                setErrorMessage(data?.message || 'Failed to reset password. Please try again.');
                 setStatus('error');
             }
         } catch {
@@ -37,7 +60,6 @@ const ForgotPassword = () => {
 
     return (
         <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4 font-sans">
-            {/* Header */}
             <div className="text-center mb-8">
                 <div className="mx-auto w-12 h-12 bg-[#115e59] rounded-full flex items-center justify-center text-white font-bold text-xl mb-4">
                     CI
@@ -47,64 +69,149 @@ const ForgotPassword = () => {
             </div>
 
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 w-full max-w-[400px]">
-                <div className="mb-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">Forgot Password?</h2>
-                    <p className="text-gray-500 text-sm">
-                        Enter your registered email and we'll let you change your password directly.
-                    </p>
-                </div>
-
-                {status === 'error' && (
-                    <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
-                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                        <span>{errorMessage}</span>
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                            Email Address
-                        </label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Mail className="h-4 w-4 text-gray-400" />
-                            </div>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Enter your email address"
-                                className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#115e59]/20 focus:border-[#115e59] transition-all"
-                                required
-                                disabled={status === 'loading'}
-                            />
+                {status === 'success' ? (
+                    <div className="text-center py-4">
+                        <div className="mx-auto w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle className="w-7 h-7 text-emerald-600" />
                         </div>
+                        <h2 className="text-lg font-bold text-gray-900 mb-2">Password Reset!</h2>
+                        <p className="text-gray-500 text-sm leading-relaxed mb-6">
+                            Your password has been updated successfully. Redirecting to login...
+                        </p>
+                        <button
+                            onClick={() => navigate('/login')}
+                            className="w-full py-2.5 rounded-lg text-white font-medium text-sm bg-[#115e59] hover:bg-[#0f4d49] transition-colors"
+                        >
+                            Go to Sign In Now
+                        </button>
                     </div>
+                ) : (
+                    <>
+                        <div className="mb-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-1">Reset Password</h2>
+                            <p className="text-gray-500 text-sm">
+                                Enter your email and new password to configure your account.
+                            </p>
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={status === 'loading'}
-                        className="w-full py-2.5 rounded-lg text-white font-medium text-sm bg-[#115e59] hover:bg-[#0f4d49] transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        {status === 'loading' ? (
-                            <>
-                                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                                </svg>
-                                Verifying Email...
-                            </>
-                        ) : 'Continue'}
-                    </button>
-                </form>
+                        {status === 'error' && (
+                            <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
+                                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>{errorMessage}</span>
+                            </div>
+                        )}
 
-                <p className="text-center text-xs text-gray-500 mt-6">
-                    Remember your password?{' '}
-                    <Link to="/login" className="text-[#115e59] font-medium hover:underline">
-                        Sign In
-                    </Link>
-                </p>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                    Email Address
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Mail className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="Enter your email address"
+                                        className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#115e59]/20 focus:border-[#115e59] transition-all"
+                                        required
+                                        disabled={status === 'loading'}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                    New Password
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Lock className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        value={newPassword}
+                                        onChange={(e) => setNewPassword(e.target.value)}
+                                        placeholder="Enter new password"
+                                        className={`w-full pl-9 pr-10 py-2 bg-gray-50 border rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#115e59]/20 transition-all ${
+                                            passwordTooShort ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-[#115e59]'
+                                        }`}
+                                        required
+                                        disabled={status === 'loading'}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                        disabled={status === 'loading'}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                {passwordTooShort && (
+                                    <p className="text-red-500 text-xs mt-1.5 ml-1">Must be at least 8 characters</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                    Confirm New Password
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Lock className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type={showConfirm ? "text" : "password"}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Re-enter new password"
+                                        className={`w-full pl-9 pr-10 py-2 bg-gray-50 border rounded-lg text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#115e59]/20 transition-all ${
+                                            confirmPassword.length > 0 && !passwordsMatch ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-[#115e59]'
+                                        }`}
+                                        required
+                                        disabled={status === 'loading'}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirm(!showConfirm)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                        disabled={status === 'loading'}
+                                    >
+                                        {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                {confirmPassword.length > 0 && !passwordsMatch && (
+                                    <p className="text-red-500 text-xs mt-1.5 ml-1">Passwords do not match</p>
+                                )}
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={status === 'loading' || !passwordsMatch || passwordTooShort || !email}
+                                className="w-full py-2.5 rounded-lg text-white font-medium text-sm bg-[#115e59] hover:bg-[#0f4d49] transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {status === 'loading' ? (
+                                    <>
+                                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                        </svg>
+                                        Updating Password...
+                                    </>
+                                ) : 'Update Password'}
+                            </button>
+                        </form>
+                        
+                        <div className="mt-6 text-center text-sm">
+                            <Link to="/login" className="text-[#115e59] hover:text-[#0f4d49] font-semibold hover:underline">
+                                Back to Sign In
+                            </Link>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
