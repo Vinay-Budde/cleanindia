@@ -430,7 +430,7 @@ const AdminDashboard = () => {
                             <span style={{fontSize:11,fontWeight:600,color:'#9ca3af',marginRight:4,alignSelf:'center'}}>Filter:</span>
                             {(Object.keys(PRIORITY_CONFIG) as Priority[]).map(p=>{
                                 const cfg=PRIORITY_CONFIG[p];const count=complaints.filter((c:any)=>c.priority===p&&c.latitude&&c.longitude).length;const active=activePriorities.has(p);
-                                return <button key={p} onClick={()=>{setActivePriorities(prev=>{const n=new Set(prev);n.has(p)?n.delete(p):n.add(p);return n;});}} style={{background:active?cfg.bg:'#f9fafb',border:`1px solid ${active?cfg.border:'#e5e7eb'}`,color:active?cfg.color:'#9ca3af',borderRadius:99,padding:'4px 14px',fontSize:11,fontWeight:700,cursor:'pointer',opacity:active?1:0.6,display:'inline-flex',alignItems:'center',gap:6}}>
+                                return <button key={p} onClick={()=>{setActivePriorities(prev=>{const n=new Set(prev); if(n.has(p)){n.delete(p);}else{n.add(p);} return n;});}} style={{background:active?cfg.bg:'#f9fafb',border:`1px solid ${active?cfg.border:'#e5e7eb'}`,color:active?cfg.color:'#9ca3af',borderRadius:99,padding:'4px 14px',fontSize:11,fontWeight:700,cursor:'pointer',opacity:active?1:0.6,display:'inline-flex',alignItems:'center',gap:6}}>
                                     <span style={{background:active?cfg.dot:'#9ca3af',width:6,height:6,borderRadius:'50%',display:'inline-block'}}/>{cfg.label} ({count})
                                 </button>;
                             })}
