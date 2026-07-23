@@ -40,10 +40,9 @@ const Login = () => {
 
                 toast.success('Login successful!', { id: tid });
 
-                if (user.role === 'admin') {
+                const OFFICER_ROLES = ['super_admin','admin','state_admin','commissioner','zone_officer','ward_officer','field_inspector','worker'];
+                if (OFFICER_ROLES.includes(user.role)) {
                     navigate('/admin/dashboard');
-                } else if (user.role === 'worker') {
-                    navigate('/worker/dashboard');
                 } else {
                     const redirectPath = location.state?.from || '/dashboard';
                     navigate(redirectPath);
