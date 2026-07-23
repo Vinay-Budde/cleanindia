@@ -146,7 +146,8 @@ const AdminDashboard = () => {
         const fetchComplaints = async () => {
             setIsLoading(true);
             try {
-                const data = await api.get<ComplaintData[]>('/api/complaints');
+                const res: any = await api.get('/api/complaints');
+                const data: ComplaintData[] = res.complaints || res || [];
 
                 const resolvedCount = data.filter(c => c.status === 'resolved').length;
                 const pendingCount = data.filter(c => c.status === 'submitted' || c.status === 'verified').length;

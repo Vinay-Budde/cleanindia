@@ -103,7 +103,8 @@ const Dashboard = () => {
         const fetchComplaints = async () => {
             setIsLoading(true);
             try {
-                const data = await api.get<ComplaintData[]>('/api/complaints');
+                const res: any = await api.get('/api/complaints');
+                const data: ComplaintData[] = res.complaints || res || [];
                 setComplaints(data);
 
                 const resolvedCount = data.filter(c => c.status === 'resolved').length;
