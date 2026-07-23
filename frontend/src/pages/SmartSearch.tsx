@@ -35,8 +35,8 @@ export default function SmartSearch() {
             if (filters.priority !== 'all') params.append('priority', filters.priority);
             if (filters.category !== 'all') params.append('category', filters.category);
 
-            const data = await api.get(`/api/complaints?${params.toString()}`);
-            setResults(data.complaints || data || []);
+            const data = await api.get(`/api/complaints/search?${params.toString()}`);
+            setResults(data || []);
         } catch (error) {
             console.error('Search failed', error);
         } finally {
